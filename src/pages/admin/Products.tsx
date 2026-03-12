@@ -15,17 +15,22 @@ import {
   Loader2,
   Layers,
   DollarSign,
-  Box
+  Box,
+  Edit3
 } from 'lucide-react';
 import { Product, ProductVariation } from '@/types';
+import { apiService } from '@/services/api';
 import { GoogleGenAI } from "@google/genai";
 
 export const Products: React.FC = () => {
-  const { products, addProduct, deleteProduct, formatPrice, t, addToast } = useApp();
+  const { products, addProduct, updateProduct, deleteProduct, formatPrice, t, addToast } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   
   const itemsPerPage = 5;
 
@@ -69,13 +74,23 @@ export const Products: React.FC = () => {
     }
   };
 
-  const addImageUrl = () => {
-    if (currentImageUrl.trim()) {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const { url } = await apiService.uploadImage(file);
       setNewProduct(prev => ({
         ...prev,
-        images: [...(prev.images || []), currentImageUrl.trim()]
+        images: [...(prev.images || []), url]
       }));
-      setCurrentImageUrl('');
+      addToast('Imagem carregada com sucesso!', 'success');
+    } catch (error) {
+      addToast('Erro ao carregar imagem.', 'error');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -115,28 +130,37 @@ export const Products: React.FC = () => {
     });
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProduct.images || newProduct.images.length === 0) {
       addToast('Adicione pelo menos uma imagem.', 'error');
       return;
     }
 
-    const product: Product = {
-      ...newProduct as Product,
-      id: 'p-' + Date.now(),
-      rating: 0,
-      reviewsCount: 0,
-      featured: false,
-      createdAt: new Date().toISOString(),
-      variations: newProduct.variations || []
-    };
-    addProduct(product);
+    if (isEditing && (newProduct as Product).id) {
+      const { id, createdAt, updatedAt, ...rest } = newProduct as any;
+      await updateProduct({ ...rest, id });
+      setIsModalOpen(false);
+      resetForm();
+    } else {
+      const product: Product = {
+        ...newProduct as Product,
+        id: 'p-' + Date.now(),
+        rating: 0,
+        reviewsCount: 0,
+        featured: false,
+        createdAt: new Date().toISOString(),
+        variations: newProduct.variations || []
+      };
+      await addProduct(product);
+    }
+    
     setIsModalOpen(false);
     resetForm();
   };
 
   const resetForm = () => {
+    setIsEditing(false);
     setNewProduct({ 
       name: '', 
       price: 0, 
@@ -234,9 +258,21 @@ export const Products: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-8 py-5 text-right">
-                    <button className="p-3 text-gray-300 hover:text-red-600 rounded-xl transition-all" onClick={() => deleteProduct(product.id)}>
-                      <Trash2 className="h-5 w-5" />
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      <button 
+                        className="p-3 text-gray-300 hover:text-indigo-600 rounded-xl transition-all" 
+                        onClick={() => {
+                          setNewProduct(product);
+                          setIsEditing(true);
+                          setIsModalOpen(true);
+                        }}
+                      >
+                        <Edit3 className="h-5 w-5" />
+                      </button>
+                      <button className="p-3 text-gray-300 hover:text-red-600 rounded-xl transition-all" onClick={() => deleteProduct(product.id)}>
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -281,8 +317,10 @@ export const Products: React.FC = () => {
           <div className="bg-white rounded-[3rem] w-full max-w-6xl relative shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[95vh]">
             <div className="px-10 py-8 border-b bg-gray-50/50 flex justify-between items-center flex-shrink-0">
               <div>
-                <h2 className="text-xl font-black uppercase italic">Painel de Cadastro Avançado</h2>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Configure variações e optimize o seu inventário</p>
+                <h2 className="text-xl font-black uppercase italic">{isEditing ? 'Editar Artigo Existente' : 'Painel de Cadastro Avançado'}</h2>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+                  {isEditing ? 'Atualize as informações do seu inventário' : 'Configure variações e optimize o seu inventário'}
+                </p>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white rounded-full transition-colors"><X className="h-6 w-6" /></button>
             </div>
@@ -412,25 +450,29 @@ export const Products: React.FC = () => {
                     <ImageIcon size={14}/> Galeria & Capa
                    </h3>
                    
-                   <div className="p-6 bg-indigo-50/30 rounded-[2rem] border border-indigo-100">
-                      <div className="flex gap-2">
-                         <div className="relative flex-1">
-                            <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-300" size={14} />
-                            <input 
-                               type="text" 
-                               value={currentImageUrl}
-                               onChange={(e) => setCurrentImageUrl(e.target.value)}
-                               className="w-full pl-10 pr-4 py-3 bg-white border border-indigo-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none" 
-                               placeholder="URL da Imagem..."
-                               onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addImageUrl())}
-                            />
-                         </div>
+                    <div className="p-6 bg-indigo-50/30 rounded-[2rem] border border-indigo-100">
+                      <div className="space-y-4">
+                         <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={handleFileUpload}
+                            ref={fileInputRef}
+                            className="hidden"
+                         />
                          <button 
                             type="button"
-                            onClick={addImageUrl}
-                            className="px-4 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all"
+                            disabled={isUploading}
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-full py-4 bg-white border-2 border-dashed border-indigo-200 rounded-2xl flex flex-col items-center justify-center gap-2 hover:border-indigo-400 transition-all group"
                          >
-                            Add
+                            {isUploading ? (
+                               <Loader2 className="h-6 w-6 text-indigo-600 animate-spin" />
+                            ) : (
+                               <Plus className="h-6 w-6 text-indigo-400 group-hover:text-indigo-600 transition-colors" />
+                            )}
+                            <span className="text-[10px] font-black uppercase text-indigo-400 group-hover:text-indigo-600">
+                               {isUploading ? 'A Carregar...' : 'Carregar Imagem do Computador'}
+                            </span>
                          </button>
                       </div>
 
@@ -471,7 +513,7 @@ export const Products: React.FC = () => {
 
               <div className="pt-8 border-t border-gray-100">
                 <button type="submit" className="w-full bg-indigo-600 text-white py-6 rounded-[2rem] font-black uppercase tracking-widest shadow-2xl shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95 text-sm">
-                  Validar e Publicar no Catálogo
+                  {isEditing ? 'Atualizar Artigo no Catálogo' : 'Validar e Publicar no Catálogo'}
                 </button>
               </div>
             </form>

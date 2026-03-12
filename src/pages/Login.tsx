@@ -14,12 +14,22 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateHome }) 
   const [password, setPassword] = useState('');
   const [isAdminMode, setIsAdminMode] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulating authentication
-    const role = isAdminMode ? 'admin' : 'customer';
-    login(role);
-    onLoginSuccess(role);
+    setError(null);
+    setIsLoading(true);
+    
+    try {
+      await login({ email, password });
+      onLoginSuccess(isAdminMode ? 'admin' : 'customer');
+    } catch (err: any) {
+      setError(err.message || 'Credenciais inválidas. Verifique os seus dados.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -89,12 +99,19 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateHome }) 
               </div>
             </div>
 
+            {error && (
+              <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-2xl text-xs font-bold uppercase tracking-widest text-center animate-shake">
+                {error}
+              </div>
+            )}
+
             <button 
               type="submit"
-              className="w-full bg-indigo-600 text-white py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:bg-indigo-700 shadow-2xl shadow-indigo-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group"
+              disabled={isLoading}
+              className={`w-full bg-indigo-600 text-white py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:bg-indigo-700 shadow-2xl shadow-indigo-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
-              Sign In to Dashboard
-              <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              {isLoading ? 'A Processar...' : 'Entrar no Painel'}
+              {!isLoading && <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />}
             </button>
 
             <div className="relative py-6">

@@ -46,7 +46,16 @@ const ToastContainer: React.FC = () => {
           {t.type === 'warning' && <AlertTriangle size={18} />}
           {t.type === 'info' && <Info size={18} />}
           <p className="text-xs font-black uppercase tracking-tight flex-1">{t.message}</p>
-          <button onClick={() => removeToast(t.id)} className="opacity-50 hover:opacity-100 transition-opacity"><X size={14}/></button>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              removeToast(t.id);
+            }} 
+            className="p-2 -mr-2 opacity-50 hover:opacity-100 hover:bg-black/5 rounded-full transition-all"
+            aria-label="Fechar notificação"
+          >
+            <X size={16}/>
+          </button>
         </div>
       ))}
     </div>

@@ -2,9 +2,9 @@
 import { Product, Category, Language, Currency } from '@/types';
 
 export const EXCHANGE_RATES: Record<Currency, number> = {
-  USD: 1,
-  EUR: 0.92,
-  AOA: 930
+  USD: 1 / 930,
+  EUR: 1 / 1010, // Approximate inverse of 0.92 * 1100
+  AOA: 1
 };
 
 export const CURRENCY_SYMBOLS: Record<Currency, string> = {

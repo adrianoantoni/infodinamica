@@ -50,7 +50,7 @@ export const Categories: React.FC<CategoriesProps> = ({ onCategorySelect, onNavi
   };
 
   return (
-    <div className="max-w-xl mx-auto min-h-screen bg-white shadow-lg overflow-hidden flex flex-col">
+    <div className="max-w-xl mx-auto max-h-[85vh] bg-white shadow-lg overflow-hidden flex flex-col rounded-b-3xl">
       {/* Header Fixo */}
       <div className="bg-white border-b border-gray-100 p-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-4">

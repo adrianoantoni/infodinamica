@@ -14,6 +14,8 @@ export const Cart: React.FC<{ onNavigate: (page: string) => void }> = ({ onNavig
   const [step, setStep] = useState<'cart' | 'shipping' | 'payment'>('cart');
   const [shippingMethod, setShippingMethod] = useState<'express' | 'pickup'>('express');
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal' | 'wallet' | 'multicaixa'>('multicaixa');
+  const [clientName, setClientName] = useState('');
+  const [clientNif, setClientNif] = useState('');
 
   const rate = EXCHANGE_RATES[currency];
   const applyTax = invoiceSettings.taxEnabled;
@@ -26,6 +28,8 @@ export const Cart: React.FC<{ onNavigate: (page: string) => void }> = ({ onNavig
   const handleFinish = () => {
     placeOrder({ 
       total: grandTotal, 
+      customerId: clientNif || 'c-guest',
+      customerName: clientName || 'Cliente Direto',
       shippingAddress: shippingMethod === 'express' ? 'Morada Registada' : 'Levantamento Nexus Hub',
       paymentMethod: paymentMethod.toUpperCase()
     });
@@ -185,8 +189,8 @@ export const Cart: React.FC<{ onNavigate: (page: string) => void }> = ({ onNavig
 
             <div class="client-section">
               <div class="client-box">
-                <h3 class="client-name">Omnem Intellegenda</h3>
-                <div class="client-detail">NIF: 5402142009</div>
+                <h3 class="client-name">${clientName || 'Consumidor Final'}</h3>
+                <div class="client-detail">NIF: ${clientNif || '999999999'}</div>
                 <div class="client-detail">Angola, Luanda</div>
               </div>
             </div>
@@ -295,7 +299,7 @@ export const Cart: React.FC<{ onNavigate: (page: string) => void }> = ({ onNavig
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 md:py-16">
+    <div className="max-w-[1600px] mx-auto px-4 py-8 md:py-16">
       <div className="flex justify-center mb-16">
         <div className="flex items-center gap-4 bg-gray-50 p-3 rounded-3xl border border-gray-100 shadow-inner">
           <button onClick={() => setStep('cart')} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${step === 'cart' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400'}`}>01. Carrinho</button>
@@ -306,8 +310,8 @@ export const Cart: React.FC<{ onNavigate: (page: string) => void }> = ({ onNavig
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-        <div className="lg:col-span-2 space-y-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
+        <div className="lg:col-span-3 space-y-8">
           {step === 'cart' && (
             <div className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-500">
               <h3 className="text-2xl font-black italic uppercase tracking-tighter mb-8">Artigos Selecionados</h3>
@@ -400,7 +404,31 @@ export const Cart: React.FC<{ onNavigate: (page: string) => void }> = ({ onNavig
 
         <div className="space-y-6">
           <div className="bg-[#242424] text-white p-10 rounded-[3.5rem] shadow-2xl relative overflow-hidden sticky top-8">
-            <h3 className="text-2xl font-black mb-10 tracking-tighter uppercase italic italic">Resumo Final</h3>
+            <h3 className="text-2xl font-black mb-8 tracking-tighter uppercase italic">Resumo Final</h3>
+            
+            {/* Customer Details for Proforma */}
+            <div className="space-y-3 mb-8">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest px-1">Nome do Cliente / Empresa</label>
+                <input 
+                  type="text" 
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  placeholder="Ex: Omnem Intellegenda"
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm font-medium focus:outline-none focus:border-[#fed700] transition-colors placeholder:text-gray-600"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest px-1">NIF</label>
+                <input 
+                  type="text" 
+                  value={clientNif}
+                  onChange={(e) => setClientNif(e.target.value)}
+                  placeholder="Ex: 5402142009"
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm font-medium focus:outline-none focus:border-[#fed700] transition-colors placeholder:text-gray-600"
+                />
+              </div>
+            </div>
             
             <div className="space-y-6">
               <div className="flex justify-between items-center border-b border-white/5 pb-4">

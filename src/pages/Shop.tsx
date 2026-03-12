@@ -8,6 +8,7 @@ import { ENHANCED_CATEGORIES } from '@/constants';
 
 interface ShopProps {
   onProductClick: (id: string) => void;
+  onNavigate?: (path: string) => void;
   initialCategory?: string;
   isDealsOnly?: boolean;
   searchTerm?: string;
@@ -137,21 +138,21 @@ export const Shop: React.FC<ShopProps> = ({ onProductClick, onNavigate, initialC
         </aside>
 
         <div className="flex-1 px-4 lg:px-0">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm gap-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 bg-white p-4 px-6 rounded-[2rem] border border-gray-100 shadow-sm gap-4">
             <div className="flex flex-col">
-              <span className="text-[14px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-1">{t.shop.viewing}</span>
-              <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tight">
+              <span className="text-[12px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-0.5">{t.shop.viewing}</span>
+              <h2 className="text-xl font-black text-gray-900 uppercase tracking-tight">
                 {activeFilterName}
-                <span className="ml-4 text-[16px] font-bold text-gray-400">({filteredProducts.length} {t.shop.items})</span>
+                <span className="ml-3 text-[14px] font-bold text-gray-400">({filteredProducts.length} {t.shop.items})</span>
               </h2>
             </div>
             
-            <div className="flex items-center gap-6 bg-gray-50 px-8 py-4 rounded-3xl border border-gray-100">
-              <span className="text-[14px] font-black text-gray-400 uppercase tracking-widest">{t.shop.sort_by}:</span>
+            <div className="flex items-center gap-4 bg-gray-50 px-5 py-2.5 rounded-2xl border border-gray-100">
+              <span className="text-[12px] font-black text-gray-400 uppercase tracking-widest">{t.shop.sort_by}:</span>
               <select 
                 value={sortBy}
                 onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
-                className="text-lg border-none bg-transparent font-black text-indigo-700 focus:ring-0 cursor-pointer uppercase tracking-widest p-0 pr-10 outline-none"
+                className="text-sm border-none bg-transparent font-black text-indigo-700 focus:ring-0 cursor-pointer uppercase tracking-widest p-0 pr-8 outline-none"
               >
                 <option>{t.shop.recent}</option>
                 <option>{t.shop.price_asc}</option>
@@ -168,35 +169,36 @@ export const Shop: React.FC<ShopProps> = ({ onProductClick, onNavigate, initialC
             </div>
           ) : (
             <div className="space-y-12">
-              <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                 {paginatedProducts.map((product) => (
-                  <div key={product.id} className="group bg-white rounded-[3rem] border border-gray-100 overflow-hidden hover:shadow-2xl transition-all flex flex-col hover:-translate-y-2">
+                  <div key={product.id} className="group bg-white rounded-[2rem] border border-gray-100 overflow-hidden hover:shadow-2xl transition-all flex flex-col hover:-translate-y-2">
                     <div className="relative aspect-square overflow-hidden cursor-pointer bg-gray-50" onClick={() => onProductClick(product.id)}>
-                      <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
-                      <button className="absolute top-6 right-6 p-4 bg-white/95 rounded-2xl text-gray-400 hover:text-red-500 shadow-xl"><Heart className="h-6 w-6" /></button>
+                     <img src={product.images[0]}
+alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                      <button className="absolute top-4 right-4 p-3 bg-white/95 rounded-xl text-gray-400 hover:text-red-500 shadow-xl"><Heart className="h-5 w-5" /></button>
                       {product.stock === 0 && (
                         <div className="absolute inset-0 bg-white/60 flex items-center justify-center backdrop-blur-[2px]">
-                          <span className="bg-red-600 text-white px-6 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl">{t.shop.no_stock}</span>
+                          <span className="bg-red-600 text-white px-4 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-widest shadow-xl">{t.shop.no_stock}</span>
                         </div>
                       )}
                     </div>
-                    <div className="p-8 flex-1 flex flex-col">
-                      <div className="flex justify-between items-center mb-4">
-                        <span className="text-[13px] font-black text-indigo-800 uppercase tracking-widest bg-indigo-50 px-4 py-1.5 rounded-xl">{getTranslatedCategoryName(product.category)}</span>
-                        <div className="flex items-center gap-1.5 text-[16px] text-yellow-500 font-black"><Star className="h-4 w-4 fill-current" /><span>{product.rating}</span></div>
+                    <div className="p-4 flex-1 flex flex-col">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-[10px] font-black text-indigo-800 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-lg">{getTranslatedCategoryName(product.category)}</span>
+                        <div className="flex items-center gap-1 text-[12px] text-yellow-500 font-black"><Star className="h-3 w-3 fill-current" /><span>{product.rating}</span></div>
                       </div>
-                      <h3 className="text-[20px] font-bold text-gray-800 mb-6 line-clamp-2 leading-tight">{getTranslatedProductName(product)}</h3>
-                      <div className="mt-auto flex items-center justify-between pt-6 border-t border-gray-50">
+                      <h3 className="text-[14px] font-bold text-gray-800 mb-3 line-clamp-2 leading-tight h-8">{product.name}</h3>
+                      <div className="mt-auto flex items-center justify-between pt-3 border-t border-gray-50">
                         <div className="flex flex-col">
-                          <span className="text-3xl font-black text-gray-900 tracking-tighter">{formatPrice(product.price)}</span>
-                          <span className={`text-[10px] font-bold uppercase mt-1 ${product.stock <= 5 ? 'text-red-500' : 'text-gray-400'}`}>{t.shop.stock}: {product.stock} un.</span>
+                          <span className="text-lg font-black text-gray-900 tracking-tighter">{formatPrice(product.price)}</span>
+                          <span className={`text-[8px] font-bold uppercase mt-0.5 ${product.stock <= 5 ? 'text-red-500' : 'text-gray-400'}`}>{t.shop.stock}: {product.stock} un.</span>
                         </div>
                         <button 
                           disabled={product.stock === 0}
                           onClick={() => handleAddToCartWithValidation(product)} 
-                          className="p-5 bg-gray-900 text-white rounded-[1.5rem] hover:bg-indigo-600 shadow-xl transition-all disabled:opacity-20 disabled:grayscale"
+                          className="p-3 bg-gray-900 text-white rounded-xl hover:bg-indigo-600 shadow-xl transition-all disabled:opacity-20 disabled:grayscale"
                         >
-                          <ShoppingCart size={24} />
+                          <ShoppingCart size={18} />
                         </button>
                       </div>
                     </div>

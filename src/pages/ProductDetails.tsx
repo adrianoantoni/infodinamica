@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
-import { ShoppingCart, Star, Check, ShieldCheck, Truck, RotateCcw } from 'lucide-react';
+import { ShoppingCart, Star, Check, ShieldCheck, Truck, RotateCcw, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Product, ProductVariation } from '@/types';
 import { ENHANCED_CATEGORIES } from '@/constants';
 
@@ -10,6 +11,7 @@ interface ProductDetailsProps {
 }
 
 export const ProductDetails: React.FC<ProductDetailsProps> = ({ productId }) => {
+  const navigate = useNavigate();
   const { products, cart, addToCart, t, formatPrice, addToast } = useApp();
   const product = products.find(p => p.id === productId);
   
@@ -58,6 +60,15 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ productId }) => 
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
+      <button 
+        onClick={() => navigate(-1)}
+        className="mb-8 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-indigo-600 transition-colors group"
+      >
+        <div className="w-10 h-10 rounded-full border border-gray-100 flex items-center justify-center group-hover:border-indigo-100 group-hover:bg-indigo-50 transition-all">
+          <ArrowLeft size={16} />
+        </div>
+        Voltar para a Loja
+      </button>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
         {/* Gallery */}
         <div className="space-y-6 sticky top-24">
