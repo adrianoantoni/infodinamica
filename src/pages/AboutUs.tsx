@@ -179,7 +179,7 @@ export const AboutUs: React.FC = () => {
           </div>
           <div className="flex flex-col gap-3 w-full md:w-auto shrink-0">
             <a href="tel:+244926520214" className="bg-[#242424] text-white px-10 py-5 rounded-2xl font-black text-sm shadow-xl hover:bg-indigo-600 transition-all text-center uppercase tracking-widest">
-              +244 926 520 214
+              +244 926 520 214 / +244 957 511 286
             </a>
             <a href="mailto:infodinamica036@gmail.com" className="bg-[#fed700] text-gray-900 px-10 py-5 rounded-2xl font-black text-sm shadow-xl hover:bg-yellow-400 transition-all text-center uppercase tracking-widest text-xs">
               infodinamica036@gmail.com

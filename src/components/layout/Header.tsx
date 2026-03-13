@@ -35,7 +35,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage, searchT
         <div className="max-w-[1850px] mx-auto px-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <span className="text-gray-400 font-bold">{t.header.support}:</span>
-            <span className="font-black">{invoiceSettings.phone} / +244 926 520 214</span>
+            <span className="font-black">+244 926 520 214 / +244 957 511 286</span>
           </div>
           <div className="hidden md:flex items-center gap-8">
             {/* Currency Selector */}

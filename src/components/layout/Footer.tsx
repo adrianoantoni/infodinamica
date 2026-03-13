@@ -55,7 +55,7 @@ export const Footer: React.FC<{ onNavigate: (page: string) => void }> = ({ onNav
           <p className="text-[15px] text-gray-500 leading-relaxed italic">"{siteSettings.siteDescription}"</p>
           <ul className="text-[15px] space-y-4 text-gray-600">
             <li className="flex items-start gap-3"><MapPin size={20} className="mt-1 flex-shrink-0 text-[#fed700]" /> {invoiceSettings.address}</li>
-            <li className="flex items-center gap-3"><Phone size={20} className="flex-shrink-0 text-[#fed700]" /> {invoiceSettings.phone} / +244 926 520 214</li>
+            <li className="flex items-center gap-3"><Phone size={20} className="flex-shrink-0 text-[#fed700]" /> +244 926 520 214 / +244 957 511 286</li>
             <li className="flex items-center gap-3"><Mail size={20} className="flex-shrink-0 text-[#fed700]" /> infodinamica036@gmail.com</li>
           </ul>
         </div>
