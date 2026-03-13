@@ -9,9 +9,10 @@ export const Contact: React.FC = () => {
         {/* Left: Contact Hub */}
         <div className="lg:col-span-2 space-y-12">
           <div className="space-y-6">
-            <span className="px-4 py-1.5 bg-indigo-100 text-indigo-700 text-[10px] font-black rounded-full uppercase tracking-widest">Connect with us</span>
-            <h1 className="text-6xl font-black text-gray-900 tracking-tighter leading-none">Let's <br/> <span className="text-indigo-600 underline decoration-indigo-100 underline-offset-8">Talk.</span></h1>
-            <p className="text-gray-500 text-lg leading-relaxed font-medium">Whether it's a technical query, a bulk order request, or just saying hello, we are all ears.</p>
+            <span className="px-4 py-1.5 bg-indigo-100 text-indigo-700 text-[10px] font-black rounded-full uppercase tracking-widest">Fale Connosco</span>
+            <h1 className="text-6xl font-black text-gray-900 tracking-tighter leading-none">Contacte-<br/> <span className="text-indigo-600 underline decoration-indigo-100 underline-offset-8">nos.</span></h1>
+            <p className="text-gray-500 text-lg leading-relaxed font-medium">A Infodinamica é especializada na venda de materiais informáticos e prestação de serviços técnicos.</p>
+            <p className="text-gray-500 text-lg leading-relaxed font-medium">Oferecemos produtos de alta qualidade e soluções personalizadas para atender as suas necessidades tecnológicas.</p>
           </div>
 
           <div className="grid grid-cols-1 gap-10">
@@ -20,8 +21,8 @@ export const Contact: React.FC = () => {
                  <Mail className="h-6 w-6" />
                </div>
                <div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Global Support</p>
-                  <p className="font-black text-gray-900 text-lg">support@nexus.io</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">E-mail</p>
+                  <p className="font-black text-gray-900 text-lg">infodinamica036@gmail.com</p>
                </div>
             </div>
             
@@ -30,26 +31,18 @@ export const Contact: React.FC = () => {
                  <Phone className="h-6 w-6" />
                </div>
                <div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Call Center</p>
-                  <p className="font-black text-gray-900 text-lg">+44 (0) 20 1234 5678</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Atendimento Telefónico</p>
+                  <p className="font-black text-gray-900 text-lg">+244 926 520 214</p>
                </div>
             </div>
           </div>
 
           <div className="bg-gray-50 rounded-[2.5rem] p-10 space-y-6">
-             <h4 className="font-black text-gray-900 uppercase tracking-widest text-xs flex items-center gap-2"><Clock className="h-4 w-4" /> Office Hours</h4>
+             <h4 className="font-black text-gray-900 uppercase tracking-widest text-xs flex items-center gap-2"><Clock className="h-4 w-4" /> Horário de Funcionamento</h4>
              <div className="space-y-3">
                 <div className="flex justify-between text-sm">
-                   <span className="text-gray-400 font-bold">Mon - Fri</span>
-                   <span className="text-gray-900 font-black">08:00 AM - 10:00 PM</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                   <span className="text-gray-400 font-bold">Saturday</span>
-                   <span className="text-gray-900 font-black">09:00 AM - 05:00 PM</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                   <span className="text-gray-400 font-bold">Sunday</span>
-                   <span className="text-red-500 font-black uppercase">Closed</span>
+                   <span className="text-gray-400 font-bold">Segunda - Domingo</span>
+                   <span className="text-gray-900 font-black">09:00 - 22:00</span>
                 </div>
              </div>
           </div>
@@ -65,39 +58,39 @@ export const Contact: React.FC = () => {
              <div className="relative z-10 space-y-8">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Your Full Name</label>
-                    <input type="text" className="w-full px-6 py-4 bg-gray-50 rounded-2xl border border-gray-100 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white outline-none transition-all font-bold text-gray-900" placeholder="e.g. John Wick" />
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Seu Nome Completo</label>
+                    <input type="text" className="w-full px-6 py-4 bg-gray-50 rounded-2xl border border-gray-100 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white outline-none transition-all font-bold text-gray-900" placeholder="Ex: João Silva" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
-                    <input type="email" className="w-full px-6 py-4 bg-gray-50 rounded-2xl border border-gray-100 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white outline-none transition-all font-bold text-gray-900" placeholder="john@nexus.io" />
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Endereço de E-mail</label>
+                    <input type="email" className="w-full px-6 py-4 bg-gray-50 rounded-2xl border border-gray-100 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white outline-none transition-all font-bold text-gray-900" placeholder="joao@exemplo.com" />
                   </div>
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Subject</label>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Assunto</label>
                   <select className="w-full px-6 py-4 bg-gray-50 rounded-2xl border border-gray-100 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white outline-none transition-all font-bold text-gray-900 appearance-none">
-                    <option>General Inquiry</option>
-                    <option>Order Support</option>
-                    <option>Partnership Proposal</option>
-                    <option>Report an Issue</option>
+                    <option>Questão Geral</option>
+                    <option>Apoio a Encomendas</option>
+                    <option>Parceria Comercial</option>
+                    <option>Reportar um Problema</option>
                   </select>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Your Message</label>
-                  <textarea rows={6} className="w-full px-6 py-4 bg-gray-50 rounded-2xl border border-gray-100 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white outline-none transition-all font-bold text-gray-900 resize-none" placeholder="Describe how we can assist you..."></textarea>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sua Mensagem</label>
+                  <textarea rows={6} className="w-full px-6 py-4 bg-gray-50 rounded-2xl border border-gray-100 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white outline-none transition-all font-bold text-gray-900 resize-none" placeholder="Olá! Bem-vindo(a) à Infodinamica. Como podemos te ajudar? Estamos prontos para oferecer os melhores produtos e serviços em tecnologia!"></textarea>
                 </div>
 
                 <button className="w-full py-5 bg-indigo-600 text-white rounded-3xl font-black uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-200 active:scale-95">
-                  <Send className="h-4 w-4" /> Ship My Message
+                  <Send className="h-4 w-4" /> Enviar Mensagem
                 </button>
              </div>
           </form>
           
           <div className="mt-12 flex items-center justify-center gap-10">
              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                <Globe className="h-4 w-4" /> We support 25+ Languages
+                <Globe className="h-4 w-4" /> Respondemos em 24h
              </p>
              <div className="flex gap-4">
                 {[Instagram, Twitter, Facebook].map((Icon, i) => (

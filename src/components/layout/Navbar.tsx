@@ -29,7 +29,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
   }, []);
 
   return (
-    <nav className={`fixed w-full z-50 transition-all duration-500 ${isScrolled ? 'bg-white/90 backdrop-blur-xl shadow-2xl py-3' : 'bg-transparent py-6'}`}>
+    <nav className={`fixed w-full z-50 transition-all duration-500 hidden md:block ${isScrolled ? 'bg-white/90 backdrop-blur-xl shadow-2xl py-3' : 'bg-transparent py-6'}`}>
       <div className="max-w-[1800px] mx-auto px-6 flex justify-between items-center">
         <div className="flex items-center gap-12">
           <div className="flex-shrink-0 cursor-pointer group" onClick={() => onNavigate('home')}>

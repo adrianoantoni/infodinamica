@@ -8,9 +8,10 @@ import { useApp } from '@/context/AppContext';
 interface CategoryNavigationProps {
   onSelect: (category: string | null, sub?: string | null, item?: string | null) => void;
   onNavigate: (page: string) => void;
+  isMobile?: boolean;
 }
 
-export const CategoryNavigation: React.FC<CategoryNavigationProps> = ({ onSelect, onNavigate }) => {
+export const CategoryNavigation: React.FC<CategoryNavigationProps> = ({ onSelect, onNavigate, isMobile }) => {
   const { t } = useApp();
   const [level, setLevel] = useState(0); // 0: Main, 1: Sub, 2: Items
   const [activeCategory, setActiveCategory] = useState<EnhancedCategory | null>(null);
@@ -18,37 +19,36 @@ export const CategoryNavigation: React.FC<CategoryNavigationProps> = ({ onSelect
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  const getCategoryName = (cat: EnhancedCategory) => {
-    return t.categories[cat.slug] || cat.name;
+  const getCategoryName = (category: EnhancedCategory) => {
+    return t.categories[category.slug] || category.name;
   };
 
-  const handleCategoryClick = (cat: EnhancedCategory) => {
-    if (isCollapsed) {
-      setIsCollapsed(false);
-      return;
-    }
-    if (cat.subCategories && cat.subCategories.length > 0) {
-      setActiveCategory(cat);
+  const handleCategoryClick = (category: EnhancedCategory) => {
+    onSelect(category.name);
+    if (category.subCategories && category.subCategories.length > 0) {
+      setActiveCategory(category);
       setLevel(1);
-      onSelect(getCategoryName(cat)); // Filter category immediately
-    } else {
-      onSelect(getCategoryName(cat));
     }
   };
 
   const handleSubClick = (sub: SubCategory) => {
+    onSelect(activeCategory!.name, sub.name);
     if (sub.items && sub.items.length > 0) {
       setActiveSub(sub);
       setLevel(2);
-      onSelect(activeCategory ? getCategoryName(activeCategory) : '', sub.name); // Filter sub-category immediately
-    } else {
-      onSelect(activeCategory ? getCategoryName(activeCategory) : '', sub.name);
     }
   };
 
   const goBack = () => {
-    if (level === 2) setLevel(1);
-    else if (level === 1) setLevel(0);
+    if (level === 2) {
+      setLevel(1);
+      setActiveSub(null);
+      onSelect(activeCategory!.name);
+    } else if (level === 1) {
+      setLevel(0);
+      setActiveCategory(null);
+      onSelect(null);
+    }
   };
 
   const handleReset = () => {
@@ -58,54 +58,54 @@ export const CategoryNavigation: React.FC<CategoryNavigationProps> = ({ onSelect
     onSelect(null);
   };
 
-  const toggleCollapse = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
   };
 
   return (
     <div 
-      className={`bg-white border border-gray-100 rounded-[2rem] shadow-2xl shadow-indigo-500/5 overflow-hidden flex flex-col transition-all duration-500 ease-in-out ${
-        isCollapsed ? 'w-20' : 'w-[280px]'
+      className={`bg-white ${isMobile ? 'w-full h-full rounded-none' : 'border border-gray-100 rounded-[2rem] shadow-2xl shadow-indigo-500/5'} overflow-hidden flex flex-col transition-all duration-500 ease-in-out ${
+        isCollapsed && !isMobile ? 'w-20' : !isMobile ? 'w-[280px]' : ''
       }`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={() => !isMobile && setIsHovered(true)}
+      onMouseLeave={() => !isMobile && setIsHovered(false)}
     >
       {/* Header Estilo Imagem */}
-      <div className={`bg-[#fcfdfe] p-3 flex items-center gap-3 transition-all ${isCollapsed ? 'justify-center' : 'pb-2'}`}>
-        {!isCollapsed && level > 0 && (
+      <div className={`bg-[#fcfdfe] p-3 flex items-center gap-3 transition-all ${isCollapsed && !isMobile ? 'justify-center' : 'pb-2'}`}>
+        {(!isCollapsed || isMobile) && level > 0 && (
           <button type="button" onClick={goBack} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors border border-gray-100 bg-white shadow-sm">
-            <ChevronLeft size={12} className="text-gray-900" />
+            <ChevronLeft size={14} className="text-gray-900" />
           </button>
         )}
         
-        {!isCollapsed ? (
+        {(!isCollapsed || isMobile) ? (
           <button 
             type="button"
             onClick={handleReset}
-            className="text-[12px] font-black text-gray-900 truncate hover:text-indigo-600 transition-colors uppercase tracking-tight flex-1 text-left"
+            className="text-[14px] font-black text-gray-900 truncate hover:text-indigo-600 transition-colors uppercase tracking-tight flex-1 text-left"
           >
             {level === 0 ? t.header.nav.categories : level === 1 ? getCategoryName(activeCategory!) : activeSub?.name}
           </button>
         ) : null}
 
-        <button 
-          type="button"
-          onClick={toggleCollapse}
-          className={`p-2 rounded-xl transition-all ${
-            isCollapsed 
-              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' 
-              : 'hover:bg-gray-100 text-gray-400'
-          }`}
-          title={isCollapsed ? "Expandir Menu" : "Recolher Menu"}
-        >
-          {isCollapsed ? <Menu size={18} /> : <Icons.PanelLeftClose size={18} />}
-        </button>
+        {!isMobile && (
+          <button 
+            type="button"
+            onClick={toggleCollapse}
+            className={`p-2 rounded-xl transition-all ${
+              isCollapsed 
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' 
+                : 'hover:bg-gray-100 text-gray-400'
+            }`}
+            title={isCollapsed ? "Expandir Menu" : "Recolher Menu"}
+          >
+            {isCollapsed ? <Menu size={18} /> : <Icons.PanelLeftClose size={18} />}
+          </button>
+        )}
       </div>
 
       {/* Lista Principal Estilo Imagem */}
-      <div className="flex-1 overflow-y-auto max-h-[500px] custom-scrollbar overflow-x-hidden">
+      <div className={`flex-1 overflow-y-auto ${isMobile ? 'max-h-full' : 'max-h-[500px]'} custom-scrollbar overflow-x-hidden`}>
         {level === 0 && (
           <div className="divide-y divide-gray-50/50">
             {ENHANCED_CATEGORIES.map((cat) => {
@@ -116,24 +116,24 @@ export const CategoryNavigation: React.FC<CategoryNavigationProps> = ({ onSelect
                   type="button"
                   onClick={() => handleCategoryClick(cat)}
                   className={`w-full flex items-center transition-all group ${
-                    isCollapsed ? 'justify-center p-2.5' : 'justify-between p-2 px-5 hover:bg-indigo-50/30'
+                    isCollapsed && !isMobile ? 'justify-center p-2.5' : 'justify-between p-3 px-6 hover:bg-indigo-50/30'
                   }`}
-                  title={isCollapsed ? getCategoryName(cat) : ""}
+                  title={isCollapsed && !isMobile ? getCategoryName(cat) : ""}
                 >
-                  <div className={`flex items-center ${isCollapsed ? 'gap-0' : 'gap-5'}`}>
+                  <div className={`flex items-center ${(isCollapsed && !isMobile) ? 'gap-0' : 'gap-5'}`}>
                     <div className={`text-indigo-600 bg-[#edf2ff] rounded-xl group-hover:scale-105 transition-transform shadow-sm flex items-center justify-center ${
-                      isCollapsed ? 'p-2 w-9 h-9' : 'p-2 w-10 h-10'
+                      (isCollapsed && !isMobile) ? 'p-2 w-9 h-9' : 'p-2 w-10 h-10'
                     }`}>
-                      <IconComponent size={isCollapsed ? 16 : 18} />
+                      <IconComponent size={(isCollapsed && !isMobile) ? 18 : 20} />
                     </div>
-                    {!isCollapsed && (
-                      <span className="text-[13px] font-bold text-gray-700 group-hover:text-gray-900 transition-colors truncate max-w-[170px]">
+                    {(!isCollapsed || isMobile) && (
+                      <span className="text-[14px] font-bold text-gray-700 group-hover:text-gray-900 transition-colors truncate max-w-[200px]">
                         {getCategoryName(cat)}
                       </span>
                     )}
                   </div>
-                  {!isCollapsed && (
-                    <ChevronRight size={16} className="text-gray-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
+                  {(!isCollapsed || isMobile) && (
+                    <ChevronRight size={18} className="text-gray-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
                   )}
                 </button>
               );

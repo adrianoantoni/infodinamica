@@ -98,7 +98,7 @@ const Main: React.FC = () => {
     if (currentPage === 'categories') return <Shop onProductClick={(id) => handleNavigate(`product-${id}`)} onNavigate={handleNavigate} initialCategory="" searchTerm={searchTerm} />;
     if (currentPage === 'category-shop') return <Shop onProductClick={(id) => handleNavigate(`product-${id}`)} onNavigate={handleNavigate} initialCategory={selectedCategory} searchTerm={searchTerm} />;
     if (currentPage === 'deals') return <Shop onProductClick={(id) => handleNavigate(`product-${id}`)} onNavigate={handleNavigate} isDealsOnly={true} searchTerm={searchTerm} />;
-    if (currentPage.startsWith('product-')) return <ProductDetails productId={currentPage.replace('product-', '')} />;
+    if (currentPage.startsWith('product-')) return <ProductDetails productId={currentPage.replace('product-', '')} onNavigate={handleNavigate} />;
     if (currentPage === 'wishlist') return <Wishlist />;
     if (currentPage === 'compare') return <Compare />;
     if (currentPage === 'about') return <AboutUs />;

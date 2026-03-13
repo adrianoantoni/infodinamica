@@ -296,7 +296,8 @@ export const NewSale: React.FC<NewSaleProps> = ({ onNavigate }) => {
       ...item.product,
       productId: item.product.id,
       quantity: item.quantity,
-      variationId: item.variationId
+      variationId: item.variationId,
+      image: item.product.images?.[0] || ''
     }));
 
     placeOrder({ 

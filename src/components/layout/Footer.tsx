@@ -5,7 +5,7 @@ import { useApp } from '@/context/AppContext';
 
 export const Footer: React.FC<{ onNavigate: (page: string) => void }> = ({ onNavigate }) => {
   const { siteSettings, invoiceSettings } = useApp();
-  
+
   return (
     <footer className="bg-[#f7f7f7] border-t border-gray-200">
       {/* 1. Shipping Information Area */}
@@ -15,7 +15,7 @@ export const Footer: React.FC<{ onNavigate: (page: string) => void }> = ({ onNav
             <div className="flex-shrink-0 bg-[#fed700] p-5 rounded-2xl shadow-md"><Truck size={36} /></div>
             <div>
               <h3 className="text-lg font-black text-[#242424]">Envio Grátis</h3>
-              <p className="text-sm text-gray-500 mt-1">Para compras acima de $100 em todo país.</p>
+              <p className="text-sm text-gray-500 mt-1">Para compras acima de 500.000,00 kz em todo Província.</p>
             </div>
           </div>
           <div className="flex items-center gap-5 text-center sm:text-left">
@@ -55,8 +55,8 @@ export const Footer: React.FC<{ onNavigate: (page: string) => void }> = ({ onNav
           <p className="text-[15px] text-gray-500 leading-relaxed italic">"{siteSettings.siteDescription}"</p>
           <ul className="text-[15px] space-y-4 text-gray-600">
             <li className="flex items-start gap-3"><MapPin size={20} className="mt-1 flex-shrink-0 text-[#fed700]" /> {invoiceSettings.address}</li>
-            <li className="flex items-center gap-3"><Phone size={20} className="flex-shrink-0 text-[#fed700]" /> {invoiceSettings.phone}</li>
-            <li className="flex items-center gap-3"><Mail size={20} className="flex-shrink-0 text-[#fed700]" /> info@infodinamica.com</li>
+            <li className="flex items-center gap-3"><Phone size={20} className="flex-shrink-0 text-[#fed700]" /> {invoiceSettings.phone} / +244 926 520 214</li>
+            <li className="flex items-center gap-3"><Mail size={20} className="flex-shrink-0 text-[#fed700]" /> infodinamica036@gmail.com</li>
           </ul>
         </div>
 

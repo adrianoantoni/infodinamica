@@ -30,12 +30,12 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage, searchT
 
   return (
     <header className="w-full">
-      {/* 1. Top Bar */}
-      <div className="bg-[#f8f9f9] border-b border-gray-200 py-3 text-[14px] text-[#242424]">
+      {/* 1. Top Bar – hidden on xs screens */}
+      <div className="hidden sm:block bg-[#f8f9f9] border-b border-gray-200 py-2.5 text-[13px] text-[#242424]">
         <div className="max-w-[1850px] mx-auto px-4 flex justify-between items-center">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
             <span className="text-gray-400 font-bold">{t.header.support}:</span>
-            <a href={`tel:${invoiceSettings.phone}`} className="font-black hover:text-[#fed700] transition-colors">{invoiceSettings.phone}</a>
+            <span className="font-black">{invoiceSettings.phone} / +244 926 520 214</span>
           </div>
           <div className="hidden md:flex items-center gap-8">
             {/* Currency Selector */}
@@ -69,35 +69,59 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage, searchT
       </div>
 
       {/* 2. Middle Header */}
-      <div className="bg-white py-6 border-b border-gray-100">
-        <div className="max-w-[1850px] mx-auto px-4 flex flex-col lg:flex-row items-center gap-8">
-          <div className="flex-shrink-0 cursor-pointer" onClick={() => onNavigate('home')}>
-            {siteSettings.siteLogo ? (
-              <img src={siteSettings.siteLogo} alt={siteSettings.siteName} className="h-12 md:h-16 w-auto object-contain" />
-            ) : (
-              <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-[#242424]">
-                {siteSettings.siteName}
-              </h1>
-            )}
+      <div className="bg-white py-3 lg:py-5 border-b border-gray-100">
+        <div className="max-w-[1850px] mx-auto px-3 sm:px-4 flex flex-col lg:flex-row items-center gap-3 lg:gap-8">
+          {/* Logo + Icons row for mobile */}
+          <div className="w-full flex items-center justify-between lg:contents">
+            <div className="flex-shrink-0 cursor-pointer" onClick={() => onNavigate('home')}>
+              {siteSettings.siteLogo ? (
+                <img src={siteSettings.siteLogo} alt={siteSettings.siteName} className="h-9 sm:h-12 lg:h-16 w-auto object-contain" />
+              ) : (
+                <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tighter text-[#242424]">
+                  {siteSettings.siteName}
+                </h1>
+              )}
+            </div>
+
+            {/* Mobile icons (hidden on desktop) */}
+            <div className="flex items-center gap-3 lg:hidden">
+              <button onClick={() => onNavigate('wishlist')} className="relative text-[#242424]">
+                <div className="relative">
+                  <Heart size={22} />
+                  {wishlist.length > 0 && <span className="absolute -top-1.5 -right-1.5 bg-[#fed700] text-gray-900 text-[9px] font-black h-4 w-4 flex items-center justify-center rounded-full border border-white">{wishlist.length}</span>}
+                </div>
+              </button>
+              <button onClick={() => onNavigate('cart')} className="relative text-[#242424]">
+                <div className="relative">
+                  <ShoppingCart size={22} />
+                  {cartCount > 0 && <span className="absolute -top-1.5 -right-1.5 bg-[#fed700] text-gray-900 text-[9px] font-black h-4 w-4 flex items-center justify-center rounded-full border border-white">{cartCount}</span>}
+                </div>
+              </button>
+              <button onClick={() => onNavigate('login')} className="text-[#242424]">
+                <User size={22} />
+              </button>
+            </div>
           </div>
 
-          <div className="flex-1 w-full max-w-5xl">
-            <div className="flex border-2 border-gray-200 rounded-2xl overflow-hidden focus-within:border-[#fed700] h-16 shadow-sm bg-gray-50/50">
+          {/* Search bar */}
+          <div className="flex-1 w-full max-w-3xl mx-auto">
+            <div className="flex border-2 border-gray-200 rounded-xl lg:rounded-2xl overflow-hidden focus-within:border-[#fed700] h-12 lg:h-16 shadow-sm bg-gray-50/50">
               <input 
                 type="text" 
                 value={searchTerm}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder={t.header.search_placeholder} 
-                className="flex-1 px-8 py-2 outline-none text-[18px] md:text-[20px] font-bold bg-transparent placeholder:text-gray-400"
+                className="flex-1 px-4 lg:px-8 py-2 outline-none text-sm lg:text-[20px] font-bold bg-transparent placeholder:text-gray-400"
               />
-              <button className="bg-[#fed700] px-8 md:px-10 py-2 hover:bg-[#333] hover:text-white transition-all flex items-center gap-3 font-black uppercase text-xs tracking-widest">
-                <Search size={24} />
+              <button className="bg-[#fed700] px-4 lg:px-10 py-2 hover:bg-[#333] hover:text-white transition-all flex items-center gap-2 font-black uppercase text-xs tracking-widest">
+                <Search size={18} />
                 <span className="hidden sm:inline">{t.header.search_btn}</span>
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-6 lg:ml-auto">
+          {/* Desktop icons */}
+          <div className="hidden lg:flex items-center gap-6 lg:ml-auto">
             <button onClick={() => onNavigate('compare')} className="relative group text-[#242424] hover:text-[#fed700] transition-colors">
               <div className="flex flex-col items-center">
                 <Globe size={28} />
@@ -154,14 +178,20 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage, searchT
       </div>
       
       {/* Mobile Toggle */}
-      <div className="lg:hidden bg-[#fed700] p-4 flex justify-between items-center h-16 shadow-lg">
-        <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 bg-white/20 rounded-xl">
-          <Menu size={28} />
+      <div className="lg:hidden bg-[#fed700] px-4 flex justify-between items-center h-16 shadow-lg relative z-50">
+        <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 bg-white/20 rounded-xl active:bg-white/40 transition-colors">
+          <Menu size={24} />
         </button>
-        <span className="font-black text-2xl tracking-tighter">{siteSettings.siteName}</span>
-        <button onClick={() => onNavigate('cart')} className="relative p-2">
-          <ShoppingCart size={28} />
-          {cartCount > 0 && <span className="absolute top-0 right-0 bg-red-600 text-white text-[10px] h-5 w-5 rounded-full flex items-center justify-center font-black border-2 border-white">{cartCount}</span>}
+        <div className="flex-shrink-0 cursor-pointer" onClick={() => onNavigate('home')}>
+          {siteSettings.siteLogo ? (
+            <img src={siteSettings.siteLogo} alt={siteSettings.siteName} className="h-9 w-auto object-contain" />
+          ) : (
+            <span className="font-black text-xl tracking-tighter">{siteSettings.siteName}</span>
+          )}
+        </div>
+        <button onClick={() => onNavigate('cart')} className="relative p-2 bg-white/20 rounded-xl active:bg-white/40 transition-colors">
+          <ShoppingCart size={24} />
+          {cartCount > 0 && <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] h-5 w-5 rounded-full flex items-center justify-center font-black border-2 border-[#fed700]">{cartCount}</span>}
         </button>
       </div>
 

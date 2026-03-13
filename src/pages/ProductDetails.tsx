@@ -8,10 +8,10 @@ import { ENHANCED_CATEGORIES } from '@/constants';
 
 interface ProductDetailsProps {
   productId: string;
+  onNavigate: (page: string) => void;
 }
 
-export const ProductDetails: React.FC<ProductDetailsProps> = ({ productId }) => {
-  const navigate = useNavigate();
+export const ProductDetails: React.FC<ProductDetailsProps> = ({ productId, onNavigate }) => {
   const { products, cart, addToCart, t, formatPrice, addToast } = useApp();
   const product = products.find(p => p.id === productId);
   
@@ -20,7 +20,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ productId }) => 
   const [quantity, setQuantity] = useState(1);
 
   useEffect(() => {
-    if (product && product.variations.length > 0) {
+    if (product && product.variations && product.variations.length > 0) {
       // Selecionar a primeira variação com stock, se disponível
       const firstAvailable = product.variations.find(v => v.stock > 0) || product.variations[0];
       setSelectedVar(firstAvailable);
@@ -54,14 +54,14 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ productId }) => 
       quantity,
       price: currentPrice,
       name: `${getTranslatedProductName(product)}${selectedVar ? ` - ${selectedVar.name}` : ''}`,
-      image: product.images[0]
+      image: product.images?.[0] || ''
     });
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       <button 
-        onClick={() => navigate(-1)}
+        onClick={() => onNavigate('home')}
         className="mb-8 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-gray-400 hover:text-indigo-600 transition-colors group"
       >
         <div className="w-10 h-10 rounded-full border border-gray-100 flex items-center justify-center group-hover:border-indigo-100 group-hover:bg-indigo-50 transition-all">
@@ -74,13 +74,13 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ productId }) => 
         <div className="space-y-6 sticky top-24">
           <div className="aspect-square rounded-[3rem] overflow-hidden bg-white border border-gray-100 shadow-xl group cursor-zoom-in">
             <img 
-              src={product.images[selectedImage] || product.images[0]} 
+              src={(product.images && product.images[selectedImage]) || (product.images && product.images[0]) || ''} 
               alt={getTranslatedProductName(product)} 
               className="w-full h-full object-cover group-hover:scale-125 transition-transform duration-700" 
             />
           </div>
           <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
-            {product.images.map((img, idx) => (
+            {product.images?.map((img, idx) => (
               <button 
                 key={idx}
                 onClick={() => setSelectedImage(idx)}
