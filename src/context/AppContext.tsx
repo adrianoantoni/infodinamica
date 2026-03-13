@@ -187,7 +187,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     companyName: 'Infodinâmica',
     nif: '5001771140',
     phone: '957511286',
-    logo: '/src/assets/system_logo.jpg',
+    logo: '/system_logo.jpg',
     address: 'Luanda, Luanda, Luanda, Angola',
     iban: 'AO06.0040.0000.5997.9683.10.192',
     swift: 'AO06',
@@ -199,7 +199,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({
     siteName: 'Infodinamica',
-    siteLogo: '/src/assets/system_logo.jpg',
+    siteLogo: '/system_logo.jpg',
     siteDescription: 'Especialistas em Informática, Segurança e Soluções Tecnológicas.'
   });
 
