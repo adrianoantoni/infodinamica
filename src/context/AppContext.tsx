@@ -151,15 +151,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setIsLoggedIn(true);
           setUserRole(user.role.toLowerCase());
           setUserName(user.name);
-        } catch (error) {
-          localStorage.removeItem('nexus_token');
-          localStorage.removeItem('nexus_user');
+        } catch (error: any) {
+          console.error('Session check failed:', error);
+          logout();
         }
+      } else {
+        setIsLoggedIn(false);
+        setUserRole(null);
       }
+      setIsLoading(false); // Ensure loading is finished after check
     };
 
-    loadInitialData();
-    checkSession();
+    const fetchData = async () => {
+      await loadInitialData();
+      await checkSession();
+    };
+
+    fetchData();
   }, []);
 
   const t = TRANSLATIONS[language];
@@ -271,9 +279,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [addToast]);
 
-  const updateCustomerBalance = useCallback((customerId: string, amount: number) => {
-    setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, balance: c.balance + amount } : c));
-  }, []);
+  const updateCustomerBalance = useCallback(async (customerId: string, amount: number) => {
+    try {
+      const customer = customers.find(c => c.id === customerId);
+      if (!customer) return;
+
+      const updatedBalance = (customer.balance || 0) + amount;
+      const updatedCustomer = { ...customer, balance: updatedBalance };
+      
+      // Persist to backend
+      await apiService.updateCustomer(updatedCustomer);
+      
+      // Update local state
+      setCustomers(prev => prev.map(c => c.id === customerId ? updatedCustomer : c));
+      addToast(`Saldo de ${customer.name} atualizado: ${formatPrice(updatedBalance)}`, 'success');
+    } catch (error) {
+      addToast('Erro ao atualizar saldo do cliente', 'error');
+    }
+  }, [customers, addToast, formatPrice]);
 
   const updateSettings = useCallback(async (settings: SiteSettings) => {
     try {
@@ -474,14 +497,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
   
-  const logout = () => { 
+  const logout = useCallback(() => { 
     localStorage.removeItem('nexus_token');
     localStorage.removeItem('nexus_user');
     setIsLoggedIn(false); 
     setUserRole(null);
     setUserName(null);
     addToast('Sessão terminada', 'info');
-  };
+    // Force redirect to login
+    if (window.location.pathname.includes('/admin')) {
+      window.location.href = '/login';
+    }
+  }, [addToast]);
 
   return (
     <AppContext.Provider value={{

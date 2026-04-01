@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
+import { ENHANCED_CATEGORIES } from '@/constants';
 import { 
   Plus, 
   Search, 
@@ -38,6 +39,8 @@ export const Products: React.FC = () => {
     name: '',
     price: 0,
     category: 'Informática',
+    subCategory: '',
+    specificItem: '',
     brand: '',
     description: '',
     stock: 0,
@@ -164,7 +167,9 @@ export const Products: React.FC = () => {
     setNewProduct({ 
       name: '', 
       price: 0, 
-      category: 'Informática', 
+      category: 'Informática',
+      subCategory: '',
+      specificItem: '',
       brand: '',
       description: '',
       stock: 0, 
@@ -338,26 +343,67 @@ export const Products: React.FC = () => {
                       <input required type="text" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full px-5 py-4 border border-gray-100 rounded-2xl font-bold bg-gray-50/30 outline-none focus:ring-4 focus:ring-indigo-500/10" placeholder="Ex: Monitor UltraNexus 4K" />
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2 block">Marca</label>
-                        <input required type="text" value={newProduct.brand} onChange={e => setNewProduct({...newProduct, brand: e.target.value})} className="w-full px-5 py-4 border border-gray-100 rounded-2xl font-bold bg-gray-50/30 outline-none focus:ring-4 focus:ring-indigo-500/10" placeholder="Ex: Nexus" />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2 block">Categoria</label>
-                        <select value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} className="w-full px-5 py-4 border border-gray-100 rounded-2xl font-bold bg-gray-50/30 outline-none focus:ring-4 focus:ring-indigo-500/10 appearance-none">
-                           <option>Informática</option>
-                           <option>Escritório</option>
-                           <option>Electrodomésticos</option>
-                           <option>Segurança</option>
-                           <option>Telemóveis</option>
-                           <option>Energia</option>
-                           <option>Imagem e Som</option>
-                           <option>Jogos, Consolas e Desporto</option>
-                           <option>Beleza e Saúde</option>
-                        </select>
-                      </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2 block">Marca</label>
+                      <input required type="text" value={newProduct.brand} onChange={e => setNewProduct({...newProduct, brand: e.target.value})} className="w-full px-5 py-4 border border-gray-100 rounded-2xl font-bold bg-gray-50/30 outline-none focus:ring-4 focus:ring-indigo-500/10" placeholder="Ex: Samsung, HP, Lenovo..." />
                     </div>
+
+                    {/* ── Level 1: Categoria Principal ── */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest ml-2 block flex items-center gap-1">① Categoria Principal</label>
+                      <select
+                        value={newProduct.category}
+                        onChange={e => setNewProduct({...newProduct, category: e.target.value, subCategory: '', specificItem: ''})}
+                        className="w-full px-5 py-4 border-2 border-indigo-100 rounded-2xl font-bold bg-indigo-50/30 outline-none focus:ring-4 focus:ring-indigo-500/10 appearance-none text-indigo-900"
+                      >
+                        {ENHANCED_CATEGORIES.map(cat => (
+                          <option key={cat.id} value={cat.name}>{cat.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* ── Level 2: Subcategoria ── */}
+                    {(() => {
+                      const activeCat = ENHANCED_CATEGORIES.find(c => c.name === newProduct.category);
+                      if (!activeCat?.subCategories?.length) return null;
+                      return (
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest ml-2 block">② Subcategoria — {activeCat.name}</label>
+                          <select
+                            value={newProduct.subCategory || ''}
+                            onChange={e => setNewProduct({...newProduct, subCategory: e.target.value, specificItem: ''})}
+                            className="w-full px-5 py-4 border-2 border-indigo-50 rounded-2xl font-bold bg-gray-50/50 outline-none focus:ring-4 focus:ring-indigo-500/10 appearance-none"
+                          >
+                            <option value="">— Selecione a subcategoria —</option>
+                            {activeCat.subCategories.map(sub => (
+                              <option key={sub.id} value={sub.name}>{sub.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })()}
+
+                    {/* ── Level 3: Item específico ── */}
+                    {(() => {
+                      const activeCat = ENHANCED_CATEGORIES.find(c => c.name === newProduct.category);
+                      const activeSub = activeCat?.subCategories?.find(s => s.name === newProduct.subCategory);
+                      if (!activeSub?.items?.length) return null;
+                      return (
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2 block">③ Tipo específico — {activeSub.name}</label>
+                          <select
+                            value={newProduct.specificItem || ''}
+                            onChange={e => setNewProduct({...newProduct, specificItem: e.target.value})}
+                            className="w-full px-5 py-4 border border-gray-100 rounded-2xl font-bold bg-gray-50/30 outline-none focus:ring-4 focus:ring-indigo-500/10 appearance-none"
+                          >
+                            <option value="">— Selecione o tipo —</option>
+                            {activeSub.items.map((item, idx) => (
+                              <option key={idx} value={item}>{item}</option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })()}
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">

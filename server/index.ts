@@ -1,5 +1,5 @@
 import express from 'express';
-import cors from 'cors';
+import cors from 'cors'; // Server restart trigger for .env changes
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
@@ -7,6 +7,8 @@ import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -79,9 +81,88 @@ const adminOnly = (req: any, res: any, next: any) => {
 app.use(cors());
 app.use(express.json());
 
+// --- SMTP CONFIGURATION ---
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT),
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
 // --- ROUTES ---
 
 // 0. Auth
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(404).json({ error: 'Nenhum utilizador encontrado com este email.' });
+
+    // Generate token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { resetToken, resetTokenExpiry }
+    });
+
+    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+
+    // Send email
+    await transporter.sendMail({
+      from: '"Infodinâmica Support" <support@infodinamica.ao>',
+      to: user.email,
+      subject: 'Recuperação de Senha - Infodinâmica',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+          <h2 style="color: #4f46e5;">Recuperação de Senha</h2>
+          <p>Olá ${user.name},</p>
+          <p>Recebemos um pedido para redefinir a sua senha. Clique no botão abaixo para escolher uma nova senha:</p>
+          <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0;">Redefinir Senha</a>
+          <p>Este link é válido por 1 hora. Se não solicitou esta alteração, ignore este email.</p>
+          <p>Atentamente,<br>A equipa Infodinâmica</p>
+        </div>
+      `,
+    });
+
+    res.json({ message: 'Email de recuperação enviado com sucesso.' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Erro ao processar o pedido de recuperação.' });
+  }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { token, password } = req.body;
+  try {
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpiry: { gt: new Date() }
+      }
+    });
+
+    if (!user) return res.status(400).json({ error: 'Token inválido ou expirado.' });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetToken: null,
+        resetTokenExpiry: null
+      }
+    });
+
+    res.json({ message: 'Senha redefinida com sucesso.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Erro ao redefinir a senha.' });
+  }
+});
 app.post('/api/auth/register', async (req, res) => {
   const { email, password, name, role } = req.body;
   try {

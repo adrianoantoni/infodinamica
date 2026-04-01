@@ -1,15 +1,16 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Lock, Mail, ArrowRight, ShieldCheck, User, Chrome } from 'lucide-react';
+import { Lock, Mail, ArrowRight, ShieldCheck, User, Chrome, ChevronDown } from 'lucide-react';
 
 interface LoginProps {
   onLoginSuccess: (role: 'admin' | 'customer') => void;
   onNavigateHome: () => void;
+  onNavigateForgotPassword: () => void;
 }
 
-export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateHome }) => {
-  const { login } = useApp();
+export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateHome, onNavigateForgotPassword }) => {
+  const { login, siteSettings } = useApp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isAdminMode, setIsAdminMode] = useState(false);
@@ -36,14 +37,22 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateHome }) 
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 md:p-12">
       <div className="max-w-xl w-full">
         {/* Branding */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-10 flex flex-col items-center">
+          {siteSettings.siteLogo && (
+            <img 
+              src={siteSettings.siteLogo} 
+              alt={siteSettings.siteName} 
+              className="h-20 w-auto mb-4 cursor-pointer"
+              onClick={onNavigateHome}
+            />
+          )}
           <h1 
             className="text-4xl md:text-5xl font-black text-indigo-600 cursor-pointer inline-block tracking-tighter italic"
             onClick={onNavigateHome}
           >
-            NEXUS<span className="text-gray-900">COMMERCE</span>
+            {siteSettings.siteName.split(' ')[0]}<span className="text-gray-900">{siteSettings.siteName.split(' ').slice(1).join(' ')}</span>
           </h1>
-          <p className="text-gray-500 mt-3 font-medium text-lg">The future of e-commerce management.</p>
+          <p className="text-gray-500 mt-3 font-medium text-lg">{siteSettings.siteDescription}</p>
         </div>
 
         {/* Login Card */}
@@ -83,7 +92,13 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateHome }) 
               <div>
                 <div className="flex justify-between mb-2 px-2">
                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Password</label>
-                  <a href="#" className="text-[10px] font-black text-indigo-600 hover:underline uppercase tracking-widest">Forgot?</a>
+                  <button 
+                    type="button"
+                    onClick={onNavigateForgotPassword}
+                    className="text-[10px] font-black text-indigo-600 hover:underline uppercase tracking-widest"
+                  >
+                    Forgot?
+                  </button>
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -127,11 +142,20 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateHome }) 
                 <User className="h-5 w-5 text-indigo-500" /> Guest
               </button>
             </div>
+
+            <button 
+              type="button"
+              onClick={onNavigateHome}
+              className="w-full mt-4 py-6 border-2 border-indigo-100 text-gray-500 hover:text-indigo-600 hover:border-indigo-600 hover:bg-indigo-50 font-black text-xs uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-3 group"
+            >
+              <ChevronDown className="h-5 w-5 rotate-90" />
+              Voltar para a Home
+            </button>
           </form>
         </div>
 
         <p className="text-center text-sm font-medium text-gray-500 mt-10">
-          Don't have an account? <a href="#" className="text-indigo-600 font-black hover:underline uppercase tracking-tight">Create one for free</a>
+          Software: <span className="font-black text-indigo-600 uppercase tracking-widest">{siteSettings.siteName}</span>
         </p>
         <p className="text-center text-xs font-bold text-gray-400 mt-4 uppercase tracking-widest">
           Software: Infodinamica

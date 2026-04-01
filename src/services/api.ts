@@ -19,6 +19,32 @@ export const apiService = {
     if (!response.ok) throw new Error('Login failed');
     return response.json();
   },
+  
+  async forgotPassword(email: string) {
+    const response = await fetch(`${API_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erro ao enviar email de recuperação');
+    }
+    return response.json();
+  },
+
+  async resetPassword(token: string, password: any) {
+    const response = await fetch(`${API_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, password }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erro ao redefinir a senha');
+    }
+    return response.json();
+  },
 
   // Products
   async getProducts() {

@@ -25,6 +25,8 @@ export const NewSale: React.FC<NewSaleProps> = ({ onNavigate }) => {
     setEditingOrder,
     invoiceSettings,
     siteSettings,
+    addCustomer,
+    updateCustomerBalance,
     addToast,
     t 
   } = useApp();
@@ -40,6 +42,7 @@ export const NewSale: React.FC<NewSaleProps> = ({ onNavigate }) => {
   const [receivedAmount, setReceivedAmount] = useState<number | string>('');
   const [paymentMethod, setPaymentMethod] = useState<'Dinheiro' | 'TPA' | 'Transferência' | 'Wallet'>('Dinheiro');
   const [varModalProduct, setVarModalProduct] = useState<Product | null>(null);
+  const [generateBalance, setGenerateBalance] = useState(false);
   
   const rate = EXCHANGE_RATES[currency];
   const applyTax = invoiceSettings.taxEnabled;
@@ -300,13 +303,21 @@ export const NewSale: React.FC<NewSaleProps> = ({ onNavigate }) => {
       image: item.product.images?.[0] || ''
     }));
 
+    if (generateBalance && selectedCustomer && change > 0) {
+      // In this system, 'change' is in AOA, we need to convert back to base currency if needed
+      // or just pass the AOA value if updateCustomerBalance expects it.
+      // Based on formatPrice in AppContext, balance seems to be in AOA (or at least handled as such).
+      updateCustomerBalance(selectedCustomer.id, change);
+    }
+
     placeOrder({ 
       items: orderItems,
       total: grandTotal/rate, 
       source: 'pos', 
       customerName: selectedCustomer?.name || 'Venda POS',
       paymentMethod: paymentMethod,
-      customerId: selectedCustomer?.id
+      customerId: selectedCustomer?.id,
+      paidAmount: Number(receivedAmount) / rate,
     });
     setTimeout(() => { onNavigate('admin-orders'); setIsFinishing(false); }, 800);
   };
@@ -437,6 +448,16 @@ export const NewSale: React.FC<NewSaleProps> = ({ onNavigate }) => {
              <div className="space-y-2 text-right">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2">Troco</label>
                 <p className="text-3xl font-black text-green-400 tracking-tighter italic">{change.toLocaleString()} <span className="text-xs uppercase ml-1 opacity-50">{currency}</span></p>
+                {selectedCustomer && change > 0 && (
+                  <button 
+                    type="button"
+                    onClick={() => setGenerateBalance(!generateBalance)}
+                    className={`mt-2 flex items-center gap-2 ml-auto p-2 rounded-xl border transition-all ${generateBalance ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-white/5 border-white/10 text-gray-500'}`}
+                  >
+                    <div className={`w-3 h-3 rounded-full ${generateBalance ? 'bg-green-500 animate-pulse' : 'bg-gray-700'}`}></div>
+                    <span className="text-[9px] font-black uppercase tracking-widest">Converter em Saldo</span>
+                  </button>
+                )}
              </div>
           </div>
 

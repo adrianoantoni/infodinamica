@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from '@/context/AppContext';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -28,6 +28,8 @@ import { Reports } from '@/pages/admin/Reports';
 import { AdminUsers } from '@/pages/admin/AdminUsers';
 import { NewSale } from '@/pages/admin/NewSale';
 import { HomeManagement } from '@/pages/admin/HomeManagement';
+import { ForgotPassword } from '@/pages/ForgotPassword';
+import { ResetPassword } from '@/pages/ResetPassword';
 import { CheckCircle2, Menu, X, Info, AlertTriangle, AlertCircle } from 'lucide-react';
 
 const ToastContainer: React.FC = () => {
@@ -63,12 +65,34 @@ const ToastContainer: React.FC = () => {
 };
 
 const Main: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState('home');
+  // Determine initial page from URL or session
+  const getInitialPage = () => {
+    const path = window.location.pathname;
+    if (path.startsWith('/reset-password/')) {
+      const token = path.replace('/reset-password/', '');
+      return token ? `reset-password-${token}` : 'home';
+    }
+    
+    // Restore admin session across page refreshes
+    const savedPage = sessionStorage.getItem('infodinamica_page');
+    return savedPage && savedPage.startsWith('admin-') ? savedPage : 'home';
+  };
+
+  const [currentPage, setCurrentPage] = useState(getInitialPage());
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
   const [isAdminSidebarOpen, setIsAdminSidebarOpen] = useState(false);
   const [isAdminSidebarCollapsed, setIsAdminSidebarCollapsed] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { isLoggedIn, userRole, logout, siteSettings } = useApp();
+
+  // Persist admin pages to sessionStorage
+  useEffect(() => {
+    if (currentPage.startsWith('admin-')) {
+      sessionStorage.setItem('infodinamica_page', currentPage);
+    } else {
+      sessionStorage.removeItem('infodinamica_page');
+    }
+  }, [currentPage]);
 
   const handleNavigate = (page: string) => {
     setCurrentPage(page);
@@ -90,8 +114,18 @@ const Main: React.FC = () => {
             else handleNavigate('home');
           }}
           onNavigateHome={() => handleNavigate('home')}
+          onNavigateForgotPassword={() => handleNavigate('forgot-password')}
         />
       );
+    }
+
+    if (currentPage === 'forgot-password') {
+      return <ForgotPassword onNavigateLogin={() => handleNavigate('login')} />;
+    }
+
+    if (currentPage.startsWith('reset-password-')) {
+      const token = currentPage.replace('reset-password-', '');
+      return <ResetPassword token={token} onNavigateLogin={() => handleNavigate('login')} />;
     }
 
     if (currentPage === 'home') return <Shop onProductClick={(id) => handleNavigate(`product-${id}`)} onNavigate={handleNavigate} searchTerm={searchTerm} />;
@@ -125,7 +159,10 @@ const Main: React.FC = () => {
     }
 
     if (isAdminView) {
-      if (!isLoggedIn || userRole !== 'admin') { handleNavigate('login'); return null; }
+      if (!isLoggedIn || userRole !== 'admin') { 
+        handleNavigate('login'); 
+        return null; 
+      }
       switch(currentPage) {
         case 'admin-dashboard': return <Dashboard />;
         case 'admin-home-mgmt': return <HomeManagement />;
@@ -146,7 +183,7 @@ const Main: React.FC = () => {
     return <div className="p-12 text-center text-gray-500 font-medium italic">Oops! Página em construção.</div>;
   };
 
-  const isLoginPage = currentPage === 'login';
+  const isAuthPage = ['login', 'forgot-password'].includes(currentPage) || currentPage.startsWith('reset-password-');
 
   return (
     <div className={`min-h-screen flex flex-col transition-all duration-300 ${
@@ -155,7 +192,7 @@ const Main: React.FC = () => {
         : ''
     }`}>
       <ToastContainer />
-      {!isLoginPage && (
+      {!isAuthPage && (
         isAdminView && isLoggedIn ? (
           <>
             <div className="lg:hidden bg-gray-900 text-white p-4 flex justify-between items-center sticky top-0 z-[60]">
@@ -187,7 +224,7 @@ const Main: React.FC = () => {
       <main className={`flex-1 ${isAdminView ? 'bg-gray-50' : 'bg-white'} transition-colors duration-300`}>
         {renderPage()}
       </main>
-      {!isAdminView && !isLoginPage && <Footer onNavigate={handleNavigate} />}
+      {!isAdminView && !isAuthPage && <Footer onNavigate={handleNavigate} />}
     </div>
   );
 };
