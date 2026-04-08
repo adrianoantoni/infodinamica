@@ -102,19 +102,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
 
             {isLoggedIn ? (
               <div className="flex items-center gap-2">
-                {userRole === 'admin' && (
-                  <button 
-                    onClick={() => onNavigate('admin-dashboard')}
-                    className="p-2 text-gray-500 hover:text-indigo-600 transition-colors"
-                  >
-                    <LayoutDashboard size={20} />
-                  </button>
-                )}
+                <button 
+                  onClick={() => onNavigate(['admin', 'gerente', 'vendedor'].includes(userRole as string) ? 'admin-dashboard' : 'customer-dashboard')}
+                  className="p-2 text-indigo-600 hover:text-indigo-800 transition-colors flex items-center justify-center bg-indigo-50 rounded-full"
+                  title="Meu Painel"
+                >
+                  <User size={20} />
+                </button>
                 <button 
                   onClick={logout}
-                  className="text-xs font-bold text-gray-500 hover:text-red-600 transition-colors"
+                  className="text-xs font-bold text-gray-500 hover:text-red-600 transition-colors ml-2"
                 >
-                  Logout
+                  Sair
                 </button>
               </div>
             ) : (

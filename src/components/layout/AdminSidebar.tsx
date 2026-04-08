@@ -15,7 +15,11 @@ import {
   BarChart3,
   Home,
   Zap,
-  Menu
+  ShieldAlert,
+  Menu,
+  Activity,
+  MessageSquare,
+  CreditCard
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 
@@ -61,7 +65,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   onNavigate, 
   onLogout 
 }) => {
-  const { t, siteSettings } = useApp();
+  const { t, siteSettings, userRole } = useApp();
   const s = t.admin.sidebar;
 
   const sidebarWidth = isCollapsed ? 'w-16' : 'w-72';
@@ -131,42 +135,62 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
               onClick={() => onNavigate('admin-orders')}
               isCollapsed={isCollapsed}
             />
-            <SidebarItem 
-              icon={<Package size={20} />} 
-              label={s.products} 
-              active={currentPage === 'admin-products'}
-              onClick={() => onNavigate('admin-products')}
-              isCollapsed={isCollapsed}
-            />
-            <SidebarItem 
-              icon={<Box size={20} />} 
-              label={s.inventory} 
-              active={currentPage === 'admin-inventory'}
-              onClick={() => onNavigate('admin-inventory')}
-              isCollapsed={isCollapsed}
-            />
+            {(userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'gerente') && (
+              <>
+                <SidebarItem 
+                  icon={<Package size={20} />} 
+                  label={s.products} 
+                  active={currentPage === 'admin-products'}
+                  onClick={() => onNavigate('admin-products')}
+                  isCollapsed={isCollapsed}
+                />
+                <SidebarItem 
+                  icon={<Box size={20} />} 
+                  label={s.inventory} 
+                  active={currentPage === 'admin-inventory'}
+                  onClick={() => onNavigate('admin-inventory')}
+                  isCollapsed={isCollapsed}
+                />
+              </>
+            )}
           </nav>
         </div>
 
-        <div>
-          {!isCollapsed && <p className="px-4 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4 animate-in fade-in">Operações</p>}
-          <nav className="space-y-1.5">
-            <SidebarItem 
-              icon={<BarChart3 size={20} />} 
-              label={s.reports} 
-              active={currentPage === 'admin-reports'}
-              onClick={() => onNavigate('admin-reports')}
-              isCollapsed={isCollapsed}
-            />
-            <SidebarItem 
-              icon={<Share2 size={20} />} 
-              label={s.marketplaces} 
-              active={currentPage === 'admin-marketplaces'}
-              onClick={() => onNavigate('admin-marketplaces')}
-              isCollapsed={isCollapsed}
-            />
-          </nav>
-        </div>
+        {(userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'gerente') && (
+          <div>
+            {!isCollapsed && <p className="px-4 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4 animate-in fade-in">Operações Nexus</p>}
+            <nav className="space-y-1.5">
+              <SidebarItem 
+                icon={<BarChart3 size={20} />} 
+                label={s.reports} 
+                active={currentPage === 'admin-reports'}
+                onClick={() => onNavigate('admin-reports')}
+                isCollapsed={isCollapsed}
+              />
+              <SidebarItem 
+                icon={<MessageSquare size={20} />} 
+                label="Suporte Chat" 
+                active={currentPage === 'admin-chat'}
+                onClick={() => onNavigate('admin-chat')}
+                isCollapsed={isCollapsed}
+              />
+              <SidebarItem 
+                icon={<CreditCard size={20} />} 
+                label="Validar Pagamentos" 
+                active={currentPage === 'admin-payments'}
+                onClick={() => onNavigate('admin-payments')}
+                isCollapsed={isCollapsed}
+              />
+              <SidebarItem 
+                icon={<Share2 size={20} />} 
+                label={s.marketplaces} 
+                active={currentPage === 'admin-marketplaces'}
+                onClick={() => onNavigate('admin-marketplaces')}
+                isCollapsed={isCollapsed}
+              />
+            </nav>
+          </div>
+        )}
 
         <div>
           {!isCollapsed && <p className="px-4 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4 animate-in fade-in">Crescimento</p>}
@@ -178,25 +202,51 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
               onClick={() => onNavigate('admin-customers')}
               isCollapsed={isCollapsed}
             />
-            <SidebarItem 
-              icon={<Tag size={20} />} 
-              label={s.marketing} 
-              active={currentPage === 'admin-marketing'}
-              onClick={() => onNavigate('admin-marketing')}
-              isCollapsed={isCollapsed}
-            />
+            {(userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'gerente') && (
+              <SidebarItem 
+                icon={<Tag size={20} />} 
+                label={s.marketing} 
+                active={currentPage === 'admin-marketing'}
+                onClick={() => onNavigate('admin-marketing')}
+                isCollapsed={isCollapsed}
+              />
+            )}
           </nav>
         </div>
+        
+        {userRole?.toLowerCase() === 'admin' && (
+          <div>
+            {!isCollapsed && <p className="px-4 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4 animate-in fade-in">Administração</p>}
+            <nav className="space-y-1.5">
+              <SidebarItem 
+                icon={<ShieldAlert size={20} />} 
+                label="Equipa & Acessos" 
+                active={currentPage === 'admin-users'}
+                onClick={() => onNavigate('admin-users')}
+                isCollapsed={isCollapsed}
+              />
+              <SidebarItem 
+                icon={<Activity size={20} />} 
+                label="Auditoria do Sistema" 
+                active={currentPage === 'admin-audit'}
+                onClick={() => onNavigate('admin-audit')}
+                isCollapsed={isCollapsed}
+              />
+            </nav>
+          </div>
+        )}
       </div>
 
       <div className="p-3 mt-auto border-t border-gray-800 bg-gray-900/50 space-y-1.5">
-        <SidebarItem 
-          icon={<Settings size={20} />} 
-          label={s.settings} 
-          active={currentPage === 'admin-settings'}
-          onClick={() => onNavigate('admin-settings')}
-          isCollapsed={isCollapsed}
-        />
+        {userRole?.toLowerCase() === 'admin' && (
+          <SidebarItem 
+            icon={<Settings size={20} />} 
+            label={s.settings} 
+            active={currentPage === 'admin-settings'}
+            onClick={() => onNavigate('admin-settings')}
+            isCollapsed={isCollapsed}
+          />
+        )}
         <SidebarItem 
           icon={<LogOut size={20} className="text-red-400" />} 
           label={s.logout} 

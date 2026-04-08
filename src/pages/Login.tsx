@@ -4,16 +4,16 @@ import { useApp } from '@/context/AppContext';
 import { Lock, Mail, ArrowRight, ShieldCheck, User, Chrome, ChevronDown } from 'lucide-react';
 
 interface LoginProps {
-  onLoginSuccess: (role: 'admin' | 'customer') => void;
+  onLoginSuccess: (role: string) => void;
   onNavigateHome: () => void;
   onNavigateForgotPassword: () => void;
+  onNavigateRegister: () => void;
 }
 
-export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateHome, onNavigateForgotPassword }) => {
-  const { login, siteSettings } = useApp();
+export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateHome, onNavigateForgotPassword, onNavigateRegister }) => {
+  const { login, siteSettings, userRole } = useApp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isAdminMode, setIsAdminMode] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +25,10 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateHome, on
     
     try {
       await login({ email, password });
-      onLoginSuccess(isAdminMode ? 'admin' : 'customer');
+      
+      // Get the role from localStorage because useApp state might not be updated yet
+      const savedUser = JSON.parse(localStorage.getItem('nexus_user') || '{}');
+      onLoginSuccess(savedUser.role?.toLowerCase() || userRole?.toLowerCase() || 'customer');
     } catch (err: any) {
       setError(err.message || 'Credenciais inválidas. Verifique os seus dados.');
     } finally {
@@ -57,25 +60,10 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateHome, on
 
         {/* Login Card */}
         <div className="bg-white rounded-[3rem] shadow-2xl border border-gray-100 overflow-hidden">
-          <div className="flex border-b border-gray-100">
-            <button 
-              onClick={() => setIsAdminMode(false)}
-              className={`flex-1 py-6 text-sm font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${!isAdminMode ? 'text-indigo-600 border-b-4 border-indigo-600 bg-indigo-50/30' : 'text-gray-400 hover:text-gray-600'}`}
-            >
-              <User className="h-5 w-5" /> Customer
-            </button>
-            <button 
-              onClick={() => setIsAdminMode(true)}
-              className={`flex-1 py-6 text-sm font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${isAdminMode ? 'text-indigo-600 border-b-4 border-indigo-600 bg-indigo-50/30' : 'text-gray-400 hover:text-gray-600'}`}
-            >
-              <ShieldCheck className="h-5 w-5" /> Administrator
-            </button>
-          </div>
-
           <form onSubmit={handleSubmit} className="p-10 md:p-14 space-y-8">
             <div className="space-y-6">
               <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 ml-2">Email Address</label>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 ml-2">Endereço de Email</label>
                 <div className="relative">
                   <Mail className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                   <input 
@@ -91,13 +79,13 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateHome, on
 
               <div>
                 <div className="flex justify-between mb-2 px-2">
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Password</label>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Palavra-Passe</label>
                   <button 
                     type="button"
                     onClick={onNavigateForgotPassword}
                     className="text-[10px] font-black text-indigo-600 hover:underline uppercase tracking-widest"
                   >
-                    Forgot?
+                    Esqueceu?
                   </button>
                 </div>
                 <div className="relative">
@@ -131,22 +119,22 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateHome, on
 
             <div className="relative py-6">
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
-              <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em]"><span className="bg-white px-4 text-gray-400 font-black">Secure Access</span></div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <button type="button" className="flex items-center justify-center gap-3 py-4 border border-gray-100 rounded-2xl hover:bg-gray-50 transition-all font-black text-[10px] uppercase tracking-widest text-gray-600">
-                <Chrome className="h-5 w-5 text-red-500" /> Google
-              </button>
-              <button type="button" className="flex items-center justify-center gap-3 py-4 border border-gray-100 rounded-2xl hover:bg-gray-50 transition-all font-black text-[10px] uppercase tracking-widest text-gray-600">
-                <User className="h-5 w-5 text-indigo-500" /> Guest
-              </button>
+              <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em]"><span className="bg-white px-4 text-gray-400 font-black">Acesso Seguro</span></div>
             </div>
 
             <button 
               type="button"
+              onClick={onNavigateRegister}
+              className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:bg-emerald-700 shadow-xl shadow-emerald-100 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group"
+            >
+              Criar a Minha Conta
+              <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+
+            <button 
+              type="button"
               onClick={onNavigateHome}
-              className="w-full mt-4 py-6 border-2 border-indigo-100 text-gray-500 hover:text-indigo-600 hover:border-indigo-600 hover:bg-indigo-50 font-black text-xs uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-3 group"
+              className="w-full py-5 border-2 border-indigo-100 text-gray-500 hover:text-indigo-600 hover:border-indigo-600 hover:bg-indigo-50 font-black text-xs uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-3 group"
             >
               <ChevronDown className="h-5 w-5 rotate-90" />
               Voltar para a Home

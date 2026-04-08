@@ -41,7 +41,19 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        borderRadius: {
+          '2xl': '1rem',
+          '3xl': '1.5rem',
+        }
+      }
+    }
+  }
+</script>
+<link rel="stylesheet" href="/src/index.css">
 </head>
   <body class="bg-gray-50 text-gray-900 leading-relaxed">
     <div id="root"></div>

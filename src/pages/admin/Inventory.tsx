@@ -1,19 +1,22 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { 
   Search, History, ArrowUpRight, ArrowDownRight, 
   Package, User, Clock, AlertTriangle, X, Save,
-  MinusCircle, PlusCircle, RefreshCw, Layers
+  MinusCircle, PlusCircle, Layers, TrendingDown,
+  Activity, BarChart3, Filter, RefreshCw, Loader2
 } from 'lucide-react';
 import { MovementType, Product } from '@/types';
 
 export const Inventory: React.FC = () => {
-  const { products, stockMovements, addStockMovement, formatPrice, t, addToast } = useApp();
+  const { products, stockMovements, stockMovementsTotal, addStockMovement, fetchStockMovements, formatPrice, t, addToast } = useApp();
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [adjustingProduct, setAdjustingProduct] = useState<Product | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<'ALL' | 'ENTRY' | 'EXIT'>('ALL');
   const [adjustData, setAdjustData] = useState<{quantity: number, type: MovementType, reason: string, variationId?: string}>({ 
     quantity: 0, 
     type: MovementType.ENTRY, 
@@ -24,25 +27,48 @@ export const Inventory: React.FC = () => {
   const i = t.admin.inventory;
   const itemsPerPage = 10;
 
+  // Refresh movements on tab switch
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchStockMovements();
+    }
+  }, [activeTab, fetchStockMovements]);
+
+  // Summary stats
+  const lowStockProducts = useMemo(() => products.filter(p => p.stock <= p.minStock), [products]);
+  const totalStock = useMemo(() => products.reduce((acc, p) => acc + p.stock, 0), [products]);
+
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
       const translatedName = t.products[p.id] || p.name;
       return translatedName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+             p.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
              p.id.toLowerCase().includes(searchTerm.toLowerCase());
     });
   }, [products, searchTerm, t]);
 
   const filteredHistory = useMemo(() => {
-    return stockMovements.filter(m => {
-      const p = products.find(prod => prod.id === m.productId);
-      const name = p ? (t.products[p.id] || p.name) : '';
-      return name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-             m.reason.toLowerCase().includes(searchTerm.toLowerCase()) ||
-             m.user.toLowerCase().includes(searchTerm.toLowerCase());
-    });
-  }, [stockMovements, products, searchTerm, t]);
+    let movements = stockMovements;
+    
+    if (historyFilter !== 'ALL') {
+      const filterType = historyFilter === 'ENTRY' ? MovementType.ENTRY : MovementType.EXIT;
+      movements = movements.filter(m => m.type === filterType);
+    }
 
-  const handleApplyAdjustment = () => {
+    if (searchTerm) {
+      movements = movements.filter(m => {
+        const p = products.find(prod => prod.id === m.productId);
+        const name = p ? (t.products[p.id] || p.name) : '';
+        return name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+               m.reason.toLowerCase().includes(searchTerm.toLowerCase()) ||
+               m.user.toLowerCase().includes(searchTerm.toLowerCase());
+      });
+    }
+
+    return movements;
+  }, [stockMovements, products, searchTerm, historyFilter, t]);
+
+  const handleApplyAdjustment = async () => {
     if (!adjustingProduct || adjustData.quantity <= 0 || !adjustData.reason) {
       addToast('Preencha todos os campos corretamente.', 'warning');
       return;
@@ -53,22 +79,37 @@ export const Inventory: React.FC = () => {
       return;
     }
 
-    addStockMovement({
-      productId: adjustingProduct.id,
-      variationId: adjustData.variationId,
-      quantity: adjustData.quantity,
-      type: adjustData.type,
-      reason: adjustData.reason,
-      user: 'Administrador'
-    });
+    setIsSubmitting(true);
+    try {
+      await addStockMovement({
+        productId: adjustingProduct.id,
+        variationId: adjustData.variationId,
+        quantity: adjustData.quantity,
+        type: adjustData.type,
+        reason: adjustData.reason,
+        user: 'Administrador'
+      });
 
-    addToast(`Ajuste de ${adjustData.quantity} un. aplicado com sucesso!`, 'success');
-    setAdjustingProduct(null);
-    setAdjustData({ quantity: 0, type: MovementType.ENTRY, reason: '', variationId: undefined });
+      addToast(`Ajuste de ${adjustData.quantity} un. aplicado com sucesso!`, 'success');
+      setAdjustingProduct(null);
+      setAdjustData({ quantity: 0, type: MovementType.ENTRY, reason: '', variationId: undefined });
+    } catch {
+      // Error is already handled by addStockMovement
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getStockStatusColor = (product: Product) => {
+    if (product.stock === 0) return { bg: 'bg-red-100', text: 'text-red-700', label: 'Esgotado', border: 'border-red-200' };
+    if (product.stock <= product.minStock) return { bg: 'bg-amber-50', text: 'text-amber-700', label: 'Crítico', border: 'border-amber-200' };
+    if (product.stock <= product.minStock * 2) return { bg: 'bg-yellow-50', text: 'text-yellow-700', label: 'Baixo', border: 'border-yellow-200' };
+    return { bg: 'bg-emerald-50', text: 'text-emerald-700', label: 'Normal', border: 'border-emerald-200' };
   };
 
   return (
     <div className="p-8 space-y-8">
+      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-black text-gray-900 uppercase italic tracking-tighter">{i.title}</h1>
@@ -80,8 +121,48 @@ export const Inventory: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-2xl overflow-hidden flex flex-col min-h-[600px]">
-        <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-gray-50/20">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xl shadow-indigo-500/5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Produtos</p>
+            <div className="p-2 bg-indigo-50 rounded-xl"><Package size={16} className="text-indigo-600" /></div>
+          </div>
+          <p className="text-3xl font-black text-gray-900 tracking-tighter">{products.length}</p>
+          <p className="text-[10px] text-gray-400 font-bold mt-1">{totalStock} unidades em stock</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl border-l-4 border-l-red-500 border border-gray-100 shadow-xl shadow-red-500/5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Stock Crítico</p>
+            <div className="p-2 bg-red-50 rounded-xl"><AlertTriangle size={16} className="text-red-600" /></div>
+          </div>
+          <p className="text-3xl font-black text-red-600 tracking-tighter">{lowStockProducts.length}</p>
+          <p className="text-[10px] text-red-400 font-bold mt-1">produtos abaixo do mínimo</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xl shadow-green-500/5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Movimentações</p>
+            <div className="p-2 bg-green-50 rounded-xl"><Activity size={16} className="text-green-600" /></div>
+          </div>
+          <p className="text-3xl font-black text-gray-900 tracking-tighter">{stockMovementsTotal}</p>
+          <p className="text-[10px] text-gray-400 font-bold mt-1">registos no histórico</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xl shadow-amber-500/5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Esgotados</p>
+            <div className="p-2 bg-amber-50 rounded-xl"><TrendingDown size={16} className="text-amber-600" /></div>
+          </div>
+          <p className="text-3xl font-black text-gray-900 tracking-tighter">{products.filter(p => p.stock === 0).length}</p>
+          <p className="text-[10px] text-gray-400 font-bold mt-1">sem unidades disponíveis</p>
+        </div>
+      </div>
+
+      {/* Main Table */}
+      <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-2xl overflow-hidden flex flex-col min-h-[500px]">
+        <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-gray-50/20 gap-4">
           <div className="relative w-full max-w-md group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input 
@@ -93,9 +174,32 @@ export const Inventory: React.FC = () => {
             />
           </div>
           {activeTab === 'history' && (
-            <div className="flex gap-4">
-              <div className="flex items-center gap-2 text-[10px] font-black uppercase text-green-600 bg-green-50 px-3 py-1.5 rounded-xl border border-green-100"><ArrowUpRight size={14}/> Entradas</div>
-              <div className="flex items-center gap-2 text-[10px] font-black uppercase text-red-600 bg-red-50 px-3 py-1.5 rounded-xl border border-red-100"><ArrowDownRight size={14}/> Saídas</div>
+            <div className="flex gap-2 flex-shrink-0">
+              <button 
+                onClick={() => { setHistoryFilter('ALL'); setCurrentPage(1); }}
+                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${historyFilter === 'ALL' ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'}`}
+              >
+                <Filter size={12}/> Todos
+              </button>
+              <button 
+                onClick={() => { setHistoryFilter('ENTRY'); setCurrentPage(1); }}
+                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${historyFilter === 'ENTRY' ? 'bg-green-600 text-white border-green-600 shadow-lg' : 'bg-white text-gray-400 border-gray-100 hover:border-green-200'}`}
+              >
+                <ArrowUpRight size={12}/> Entradas
+              </button>
+              <button 
+                onClick={() => { setHistoryFilter('EXIT'); setCurrentPage(1); }}
+                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${historyFilter === 'EXIT' ? 'bg-red-600 text-white border-red-600 shadow-lg' : 'bg-white text-gray-400 border-gray-100 hover:border-red-200'}`}
+              >
+                <ArrowDownRight size={12}/> Saídas
+              </button>
+              <button 
+                onClick={() => fetchStockMovements()}
+                className="p-2.5 rounded-xl border border-gray-100 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
+                title="Atualizar"
+              >
+                <RefreshCw size={14}/>
+              </button>
             </div>
           )}
         </div>
@@ -106,43 +210,57 @@ export const Inventory: React.FC = () => {
               <thead className="bg-gray-50/50 border-b">
                 <tr>
                   <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Produto</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Referência</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">SKU</th>
                   <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Stock Atual</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Mín.</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Estado</th>
                   <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(product => (
-                  <tr key={product.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-4">
-                        <img src={product.images[0]} className="h-12 w-12 rounded-xl border object-cover shadow-sm" />
-                        <div>
-                          <p className="text-sm font-black text-gray-900">{t.products[product.id] || product.name}</p>
-                          <p className="text-[10px] text-gray-400 font-bold uppercase">{product.brand}</p>
+                {filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(product => {
+                  const status = getStockStatusColor(product);
+                  return (
+                    <tr key={product.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-8 py-5">
+                        <div className="flex items-center gap-4">
+                          <img src={product.images[0]} className="h-12 w-12 rounded-xl border object-cover shadow-sm" />
+                          <div>
+                            <p className="text-sm font-black text-gray-900">{t.products[product.id] || product.name}</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase">{product.brand}</p>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-8 py-5 text-center text-[10px] font-mono font-bold text-gray-400 uppercase">{product.id}</td>
-                    <td className="px-8 py-5 text-center">
-                      <div className="inline-flex flex-col items-center">
-                         <span className={`text-xl font-black ${product.stock <= product.minStock ? 'text-red-600' : 'text-gray-900'}`}>{product.stock}</span>
-                         {product.stock <= product.minStock && <span className="text-[8px] font-black text-red-500 uppercase tracking-tighter flex items-center gap-1"><AlertTriangle size={8}/> Stock Crítico</span>}
-                      </div>
-                    </td>
-                    <td className="px-8 py-5 text-right">
-                      <button 
-                        onClick={() => {
-                          setAdjustingProduct(product);
-                          setAdjustData(prev => ({ ...prev, variationId: product.variations[0]?.id }));
-                        }}
-                        className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all border border-indigo-100"
-                      >
-                        Ajustar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-8 py-5 text-center text-[10px] font-mono font-bold text-gray-400 uppercase">{product.sku || '—'}</td>
+                      <td className="px-8 py-5 text-center">
+                        <span className={`text-xl font-black ${product.stock <= product.minStock ? 'text-red-600' : 'text-gray-900'}`}>{product.stock}</span>
+                      </td>
+                      <td className="px-8 py-5 text-center">
+                        <span className="text-xs font-bold text-gray-400">{product.minStock}</span>
+                      </td>
+                      <td className="px-8 py-5 text-center">
+                        <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase border ${status.bg} ${status.text} ${status.border}`}>
+                          {product.stock <= product.minStock && <AlertTriangle size={10}/>}
+                          {status.label}
+                        </span>
+                      </td>
+                      <td className="px-8 py-5 text-right">
+                        <button 
+                          onClick={() => {
+                            setAdjustingProduct(product);
+                            setAdjustData(prev => ({ ...prev, variationId: product.variations[0]?.id }));
+                          }}
+                          className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all border border-indigo-100"
+                        >
+                          Ajustar
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredProducts.length === 0 && (
+                  <tr><td colSpan={6} className="py-20 text-center text-gray-400 italic font-medium">Nenhum produto encontrado.</td></tr>
+                )}
               </tbody>
             </table>
           ) : (
@@ -159,17 +277,15 @@ export const Inventory: React.FC = () => {
                <tbody className="divide-y divide-gray-50">
                  {filteredHistory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(m => {
                    const p = products.find(prod => prod.id === m.productId);
-                   const varInfo = p?.variations.find(v => v.id === m.variationId);
                    return (
                      <tr key={m.id} className="hover:bg-gray-50/50 transition-colors">
                        <td className="px-8 py-5">
                           <div className="flex items-center gap-2 text-gray-500 font-bold text-xs">
-                             <Clock size={12} /> {new Date(m.date).toLocaleString()}
+                             <Clock size={12} /> {new Date(m.date).toLocaleString('pt-PT')}
                           </div>
                        </td>
                        <td className="px-8 py-5">
                           <p className="text-xs font-black text-gray-800">{p ? (t.products[p.id] || p.name) : 'Produto Removido'}</p>
-                          {varInfo && <p className="text-[10px] text-indigo-500 font-bold">Opção: {varInfo.name}</p>}
                        </td>
                        <td className="px-8 py-5 text-center">
                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
@@ -178,7 +294,7 @@ export const Inventory: React.FC = () => {
                             'bg-blue-50 text-blue-700 border-blue-100'
                           }`}>
                             {m.type === MovementType.ENTRY ? <ArrowUpRight size={10}/> : <ArrowDownRight size={10}/>}
-                            {m.type}
+                            {m.type === MovementType.ENTRY ? 'Entrada' : m.type === MovementType.EXIT ? 'Saída' : 'Ajuste'}
                           </span>
                        </td>
                        <td className="px-8 py-5 text-center">
@@ -200,14 +316,39 @@ export const Inventory: React.FC = () => {
             </table>
           )}
         </div>
+
+        {/* Pagination */}
+        {(() => {
+          const totalItems = activeTab === 'current' ? filteredProducts.length : filteredHistory.length;
+          const totalPages = Math.ceil(totalItems / itemsPerPage);
+          if (totalPages <= 1) return null;
+          return (
+            <div className="p-4 border-t border-gray-50 flex items-center justify-between bg-gray-50/30">
+              <p className="text-[10px] font-bold text-gray-400 uppercase">
+                {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, totalItems)} de {totalItems}
+              </p>
+              <div className="flex gap-1">
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={`w-9 h-9 rounded-xl text-xs font-black transition-all ${currentPage === i + 1 ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-100'}`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
-      {/* Adjust Stock Modal - Evoluído para suportar Variações */}
+      {/* Adjust Stock Modal */}
       {adjustingProduct && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
            <div className="bg-white rounded-[3rem] w-full max-w-lg overflow-hidden shadow-2xl relative animate-in zoom-in-95 duration-200">
               <div className="p-8 border-b bg-gray-50 flex justify-between items-center">
-                 <h3 className="text-xl font-black italic uppercase italic">Ajuste de Stock Profissional</h3>
+                 <h3 className="text-xl font-black italic uppercase">Ajuste de Stock</h3>
                  <button onClick={() => setAdjustingProduct(null)} className="p-2 hover:bg-white rounded-full"><X/></button>
               </div>
               <div className="p-10 space-y-6">
@@ -215,7 +356,8 @@ export const Inventory: React.FC = () => {
                     <img src={adjustingProduct.images[0]} className="w-16 h-16 rounded-xl object-cover" />
                     <div>
                        <p className="text-sm font-black">{t.products[adjustingProduct.id] || adjustingProduct.name}</p>
-                       <p className="text-xs font-bold text-gray-400">Total Global: {adjustingProduct.stock} un.</p>
+                       <p className="text-xs font-bold text-gray-400">Stock Atual: <span className={adjustingProduct.stock <= adjustingProduct.minStock ? 'text-red-600' : 'text-green-600'}>{adjustingProduct.stock} un.</span></p>
+                       {adjustingProduct.sku && <p className="text-[10px] font-mono text-gray-400 mt-0.5">SKU: {adjustingProduct.sku}</p>}
                     </div>
                  </div>
 
@@ -262,6 +404,7 @@ export const Inventory: React.FC = () => {
                          onChange={e => setAdjustData({...adjustData, quantity: parseInt(e.target.value)})}
                          className="w-full px-5 py-4 border border-gray-100 rounded-xl font-black bg-gray-50 outline-none focus:ring-4 focus:ring-indigo-500/10" 
                          placeholder="0"
+                         min={1}
                        />
                     </div>
                  </div>
@@ -279,14 +422,17 @@ export const Inventory: React.FC = () => {
                        <option value="Quebra / Artigo Danificado">Quebra / Artigo Danificado</option>
                        <option value="Devolução Processada">Devolução Processada</option>
                        <option value="Brinde ou Amostra Grátis">Brinde ou Amostra Grátis</option>
+                       <option value="Transferência entre Armazéns">Transferência entre Armazéns</option>
                     </select>
                  </div>
 
                  <button 
                    onClick={handleApplyAdjustment}
-                   className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 mt-4"
+                   disabled={isSubmitting}
+                   className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 mt-4 disabled:opacity-50"
                  >
-                   <Save size={18}/> Validar e Actualizar
+                   {isSubmitting ? <Loader2 size={18} className="animate-spin"/> : <Save size={18}/>} 
+                   {isSubmitting ? 'A Processar...' : 'Validar e Actualizar'}
                  </button>
               </div>
            </div>

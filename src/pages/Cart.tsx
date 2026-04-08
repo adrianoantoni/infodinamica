@@ -9,7 +9,7 @@ import {
 import { EXCHANGE_RATES } from '@/constants';
 
 export const Cart: React.FC<{ onNavigate: (page: string) => void }> = ({ onNavigate }) => {
-  const { cart, removeFromCart, updateCartQuantity, placeOrder, invoiceSettings, siteSettings, formatPrice, products, currency } = useApp();
+  const { cart, removeFromCart, updateCartQuantity, placeOrder, invoiceSettings, siteSettings, formatPrice, products, currency, user, isLoggedIn } = useApp();
   
   const [step, setStep] = useState<'cart' | 'shipping' | 'payment'>('cart');
   const [shippingMethod, setShippingMethod] = useState<'express' | 'pickup'>('express');
@@ -28,10 +28,23 @@ export const Cart: React.FC<{ onNavigate: (page: string) => void }> = ({ onNavig
   const handleFinish = () => {
     placeOrder({ 
       total: grandTotal, 
-      customerId: clientNif || 'c-guest',
-      customerName: clientName || 'Cliente Direto',
+      customerId: isLoggedIn && user?.customer?.id ? user.customer.id : (clientNif || 'c-guest'),
+      customerName: isLoggedIn ? user.name : (clientName || 'Cliente Direto'),
       shippingAddress: shippingMethod === 'express' ? 'Morada Registada' : 'Levantamento Nexus Hub',
-      paymentMethod: paymentMethod.toUpperCase()
+      paymentMethod: paymentMethod.toUpperCase(),
+      docType: 'FATURA'
+    });
+    onNavigate('checkout-success');
+  };
+
+  const handleRequestProforma = () => {
+    placeOrder({ 
+      total: grandTotal, 
+      customerId: isLoggedIn && user?.customer?.id ? user.customer.id : (clientNif || 'c-guest'),
+      customerName: isLoggedIn ? user.name : (clientName || 'Cliente Direto'),
+      shippingAddress: shippingMethod === 'express' ? 'Morada Registada' : 'Levantamento Nexus Hub',
+      paymentMethod: 'TRANSFERENCIA',
+      docType: 'PROFORMA'
     });
     onNavigate('checkout-success');
   };
@@ -407,28 +420,30 @@ export const Cart: React.FC<{ onNavigate: (page: string) => void }> = ({ onNavig
             <h3 className="text-2xl font-black mb-8 tracking-tighter uppercase italic">Resumo Final</h3>
             
             {/* Customer Details for Proforma */}
-            <div className="space-y-3 mb-8">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest px-1">Nome do Cliente / Empresa</label>
-                <input 
-                  type="text" 
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  placeholder="Ex: Omnem Intellegenda"
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm font-medium focus:outline-none focus:border-[#fed700] transition-colors placeholder:text-gray-600"
-                />
+            {!isLoggedIn && (
+              <div className="space-y-3 mb-8">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest px-1">Nome do Cliente / Empresa</label>
+                  <input 
+                    type="text" 
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    placeholder="Ex: Omnem Intellegenda"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm font-medium focus:outline-none focus:border-[#fed700] transition-colors placeholder:text-gray-600"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest px-1">NIF</label>
+                  <input 
+                    type="text" 
+                    value={clientNif}
+                    onChange={(e) => setClientNif(e.target.value)}
+                    placeholder="Ex: 5402142009"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm font-medium focus:outline-none focus:border-[#fed700] transition-colors placeholder:text-gray-600"
+                  />
+                </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest px-1">NIF</label>
-                <input 
-                  type="text" 
-                  value={clientNif}
-                  onChange={(e) => setClientNif(e.target.value)}
-                  placeholder="Ex: 5402142009"
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm font-medium focus:outline-none focus:border-[#fed700] transition-colors placeholder:text-gray-600"
-                />
-              </div>
-            </div>
+            )}
             
             <div className="space-y-6">
               <div className="flex justify-between items-center border-b border-white/5 pb-4">
@@ -451,10 +466,16 @@ export const Cart: React.FC<{ onNavigate: (page: string) => void }> = ({ onNavig
                   Próximo Passo <ArrowRight className="inline-block ml-2 h-4 w-4" />
                 </button>
                 <button 
-                  onClick={handlePrintProforma}
-                  className="w-full bg-white/10 text-white py-4 rounded-3xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 hover:bg-white/20 transition-all border border-white/20"
+                  onClick={handleRequestProforma}
+                  className="w-full bg-white/10 text-[#fed700] py-4 rounded-3xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 hover:bg-white/20 transition-all border border-[#fed700]/30"
                 >
-                  <Printer size={16} /> Imprimir Proforma
+                  <CheckCircle2 size={16} /> Solicitar Proforma (Registo)
+                </button>
+                <button 
+                  onClick={handlePrintProforma}
+                  className="w-full bg-white/5 text-gray-400 py-4 rounded-3xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 hover:bg-white/10 transition-all border border-white/5"
+                >
+                  <Printer size={16} /> Imprimir Rascunho
                 </button>
               </div>
             )}

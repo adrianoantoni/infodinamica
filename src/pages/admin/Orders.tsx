@@ -1,5 +1,4 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { 
   Search, 
@@ -10,121 +9,97 @@ import {
   Plus,
   Printer,
   Edit3,
-  CheckCircle2
+  CheckCircle2,
+  FileText,
+  Truck,
+  ShieldCheck
 } from 'lucide-react';
 import { OrderStatus, Order } from '@/types';
 import { EXCHANGE_RATES } from '@/constants';
+import { printDocument } from '@/utils/documentTemplate';
 
 interface OrdersProps {
   onNavigate: (page: string) => void;
 }
 
 export const Orders: React.FC<OrdersProps> = ({ onNavigate }) => {
-  const { orders, updateOrderStatus, formatPrice, invoiceSettings, siteSettings, currency, setEditingOrder } = useApp();
+  const { updateOrderStatus, formatPrice, invoiceSettings, siteSettings, currency, setEditingOrder, fetchOrders } = useApp();
+  
+  const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const itemsPerPage = 8; // we can increase this now that it is paginated
 
   const rate = EXCHANGE_RATES[currency];
 
-  const filteredOrders = useMemo(() => {
-    return orders.filter(o => 
-      o.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      o.customerName.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [orders, searchTerm]);
+  useEffect(() => {
+    const loadOrders = async () => {
+      setIsLoading(true);
+      const params: any = { page: currentPage, limit: itemsPerPage };
+      if (searchTerm) params.search = searchTerm;
+      if (statusFilter) params.status = statusFilter;
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
 
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
-  
-  const paginatedOrders = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredOrders.slice(start, start + itemsPerPage);
-  }, [filteredOrders, currentPage]);
+      const result = await fetchOrders(params);
+      setOrders(result.sales as any[]);
+      setTotalPages(result.totalPages);
+      setIsLoading(false);
+    };
+    
+    // Add debounce for search term
+    const timeoutId = setTimeout(() => {
+      loadOrders();
+    }, 500);
 
-  const getStatusColor = (status: OrderStatus) => {
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, statusFilter, startDate, endDate, currentPage]);
+
+  const getStatusColor = (status: OrderStatus | string) => {
     switch (status) {
-      case OrderStatus.PENDING: return 'bg-amber-50 text-amber-600 border-amber-100';
-      case OrderStatus.CONFIRMED: return 'bg-blue-50 text-blue-600 border-blue-100';
+      case OrderStatus.PENDING: 
+      case 'Pending':
+        return 'bg-amber-50 text-amber-600 border-amber-100';
+      case OrderStatus.CONFIRMED: 
+      case 'Confirmed':
+        return 'bg-blue-50 text-blue-600 border-blue-100';
+      case 'EM VERIFICAÇÃO':
+        return 'bg-indigo-50 text-indigo-600 border-indigo-100';
+      case 'APROVADO':
+        return 'bg-emerald-50 text-emerald-600 border-emerald-100';
       case OrderStatus.SHIPPED: return 'bg-indigo-50 text-indigo-600 border-indigo-100';
       case OrderStatus.DELIVERED: return 'bg-green-50 text-green-600 border-green-100';
       case OrderStatus.CANCELLED: return 'bg-red-50 text-red-600 border-red-100';
+      case 'Completed': return 'bg-green-50 text-green-600 border-green-100';
       default: return 'bg-gray-50 text-gray-600 border-gray-100';
     }
   };
 
-  const reprintInvoice = (order: Order) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const totalWithRate = order.total * rate;
-    
-    // Nomes dos produtos para o QR Code
-    const productNames = order.items.map(i => i.name).join(', ');
-    
-    // Dados para o QR Code (Incluindo Itens)
-    const dateStr = new Date(order.createdAt).toLocaleDateString('pt-PT');
-    const qrData = encodeURIComponent(`DOC:${order.id}|NIF:${invoiceSettings.nif}|DATE:${dateStr}|TOTAL:${totalWithRate.toFixed(2)}|ITEMS:${productNames}`);
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${qrData}`;
-
-    const itemsHtml = order.items.map(item => `
-      <tr>
-        <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${(item.price * rate).toLocaleString('pt-PT', { minimumFractionDigits: 2 })}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">${(item.price * rate * item.quantity).toLocaleString('pt-PT', { minimumFractionDigits: 2 })}</td>
-      </tr>
-    `).join('');
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>2ª VIA - ${order.id}</title>
-          <style>
-            body { font-family: 'Inter', sans-serif; padding: 40px; color: #333; font-size: 11px; }
-            .header { display: flex; justify-content: space-between; border-bottom: 3px solid #4f46e5; padding-bottom: 20px; margin-bottom: 30px; }
-            .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 100px; color: rgba(0,0,0,0.05); pointer-events: none; z-index: -1; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            th { background: #f8f9fa; padding: 10px; text-align: left; border-bottom: 2px solid #ddd; text-transform: uppercase; font-size: 9px; }
-            .summary-flex { display: flex; justify-content: space-between; align-items: flex-end; }
-            .qr-side { text-align: center; }
-            .qr-side img { width: 100px; height: 100px; }
-            .qr-side p { font-size: 8px; color: #999; margin-top: 5px; }
-            .totals { width: 280px; background: #fcfcfc; padding: 20px; border-radius: 15px; border: 1px solid #eee; }
-            .total-row { display: flex; justify-content: space-between; padding: 5px 0; }
-            .grand-total { font-size: 16px; font-weight: 800; border-top: 2px solid #333; margin-top: 10px; padding-top: 10px; color: #4f46e5; }
-            .footer { margin-top: 60px; text-align: center; color: #999; font-size: 9px; border-top: 1px dashed #ccc; padding-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="watermark">2ª VIA</div>
-          <div class="header">
-            <div>${siteSettings.siteLogo ? `<img src="${siteSettings.siteLogo}" alt="${invoiceSettings.companyName}" style="max-height: 50px; margin-bottom: 10px;" />` : `<h1 style="margin:0; color:#4f46e5;">${invoiceSettings.companyName}</h1>`}<p>NIF: ${invoiceSettings.nif}<br>Tel: ${invoiceSettings.phone}</p></div>
-            <div style="text-align: right"><h2>Fatura Recibo (2ª VIA)</h2><p>Data Original: ${new Date(order.createdAt).toLocaleString('pt-PT')}<br>Emissão 2ª Via: ${new Date().toLocaleString('pt-PT')}</p></div>
-          </div>
-          <p><strong>CLIENTE:</strong> ${order.customerName}</p>
-          <table>
-            <thead><tr><th>Descrição</th><th style="text-align:center;">Qtd</th><th style="text-align:right;">P. Unit</th><th style="text-align:right;">Total</th></tr></thead>
-            <tbody>${itemsHtml}</tbody>
-          </table>
-          
-          <div class="summary-flex">
-            <div class="qr-side">
-               <img src="${qrCodeUrl}" alt="Verification QR" />
-               <p>Digitalize para validar autenticidade</p>
-            </div>
-            <div class="totals">
-              <div class="total-row grand-total"><span>TOTAL:</span><span>${(totalWithRate).toLocaleString('pt-PT', { minimumFractionDigits: 2 })} Kz</span></div>
-            </div>
-          </div>
-
-          <div class="footer"><p>Processado por computador | Software Infodinamica v3.1</p></div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    setTimeout(() => printWindow.print(), 500);
+  const reprintInvoice = (order: Order, isProforma = false) => {
+    const taxRate = invoiceSettings.taxEnabled ? (invoiceSettings.taxRate / 100) : 0;
+    const saleData = {
+      ...order,
+      invoiceNumber: order.invoiceNumber || order.id,
+      docType: isProforma ? 'PROFORMA' : (order.docType || 'FATURA'),
+      date: order.createdAt,
+      total: order.total,
+      tax: order.tax || (order.total * taxRate),
+      discount: order.discount || 0,
+      items: order.items.map((i: any) => ({
+        name: i.product?.name || i.name || 'Artigo sem nome',
+        quantity: i.quantity,
+        price: i.price,
+        variationId: i.variationId
+      }))
+    };
+    printDocument(saleData, siteSettings, invoiceSettings, rate);
   };
 
   const handleEditOrder = (order: Order) => {
@@ -151,8 +126,8 @@ export const Orders: React.FC<OrdersProps> = ({ onNavigate }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 bg-white rounded-[2.5rem] border border-gray-100 shadow-2xl overflow-hidden flex flex-col min-h-[500px]">
-          <div className="p-6 border-b border-gray-50 bg-gray-50/30">
-            <div className="relative w-80">
+          <div className="p-6 border-b border-gray-50 bg-gray-50/30 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input 
                 type="text" 
@@ -162,9 +137,45 @@ export const Orders: React.FC<OrdersProps> = ({ onNavigate }) => {
                 className="w-full pl-11 pr-4 py-3 bg-white border border-gray-100 rounded-2xl font-bold focus:ring-4 focus:ring-indigo-500/5 outline-none"
               />
             </div>
+            <div>
+              <select 
+                value={statusFilter}
+                onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+                className="w-full px-4 py-3 bg-white border border-gray-100 rounded-2xl font-bold focus:ring-4 focus:ring-indigo-500/5 outline-none appearance-none"
+              >
+                <option value="">Todos os Status</option>
+                <option value="Completed">Concluídos</option>
+                <option value="Pending">Pendentes</option>
+                <option value="EM VERIFICAÇÃO">Em Verificação</option>
+                <option value="APROVADO">Aprovados</option>
+                <option value="Canceled">Cancelados</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <input 
+                type="date"
+                value={startDate}
+                placeholder="Início"
+                onChange={(e) => { setStartDate(e.target.value); setCurrentPage(1); }}
+                className="w-full px-4 py-3 bg-white border border-gray-100 rounded-2xl font-bold focus:ring-4 focus:ring-indigo-500/5 outline-none"
+              />
+              <span className="text-gray-400 font-bold">-</span>
+              <input 
+                type="date"
+                value={endDate}
+                placeholder="Fim"
+                onChange={(e) => { setEndDate(e.target.value); setCurrentPage(1); }}
+                className="w-full px-4 py-3 bg-white border border-gray-100 rounded-2xl font-bold focus:ring-4 focus:ring-indigo-500/5 outline-none"
+              />
+            </div>
           </div>
 
-          <div className="flex-1">
+          <div className="flex-1 relative">
+            {isLoading && (
+               <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
+                 <div className="animate-spin text-indigo-600 rounded-full border-4 border-indigo-600 border-t-transparent w-8 h-8"></div>
+               </div>
+            )}
             <table className="w-full text-left">
               <thead className="bg-white border-b-2 border-gray-100">
                 <tr>
@@ -173,26 +184,49 @@ export const Orders: React.FC<OrdersProps> = ({ onNavigate }) => {
                   <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Data</th>
                   <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Total</th>
                   <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Status</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Pagamento</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {paginatedOrders.map((order) => (
-                  <tr 
-                    key={order.id} 
-                    className={`hover:bg-indigo-50/50 cursor-pointer transition-colors ${selectedOrderId === order.id ? 'bg-indigo-50' : ''}`}
-                    onClick={() => setSelectedOrderId(order.id)}
-                  >
-                    <td className="px-8 py-5 font-black text-gray-900 text-xs">{order.id}</td>
-                    <td className="px-8 py-5 text-sm font-bold text-gray-700">{order.customerName}</td>
-                    <td className="px-8 py-5 text-center text-xs text-gray-400">{new Date(order.createdAt).toLocaleDateString()}</td>
-                    <td className="px-8 py-5 font-black text-gray-900 text-right">{formatPrice(order.total)}</td>
-                    <td className="px-8 py-5 text-center">
-                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${getStatusColor(order.status)}`}>
-                        {order.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {orders.length === 0 && !isLoading ? (
+                  <tr><td colSpan={5} className="text-center py-10 text-gray-400 font-bold">Nenhum pedido encontrado.</td></tr>
+                ) : (
+                  orders.map((order) => (
+                    <tr 
+                      key={order.id} 
+                      className={`hover:bg-indigo-50/50 cursor-pointer transition-colors ${selectedOrderId === order.id ? 'bg-indigo-50' : ''}`}
+                      onClick={() => setSelectedOrderId(order.id)}
+                    >
+                      <td className="px-8 py-5 font-black text-gray-900 text-xs">
+                        {(order as any).invoiceNumber || order.id}
+                        {(order as any).docType === 'PROFORMA' && (
+                          <span className="ml-2 text-[8px] bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-black uppercase">Proforma</span>
+                        )}
+                      </td>
+                      <td className="px-8 py-5 text-sm font-bold text-gray-700">{order.customerName}</td>
+                      <td className="px-8 py-5 text-center text-xs text-gray-400">{new Date((order as any).createdAt || (order as any).date).toLocaleDateString()}</td>
+                      <td className="px-8 py-5 font-black text-gray-900 text-right">{formatPrice(order.total)}</td>
+                      <td className="px-8 py-5 text-center">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${getStatusColor(order.status)}`}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="px-8 py-5 text-center">
+                        {(order as any).paymentProofs?.length > 0 ? (
+                          <div className="flex flex-col items-center gap-1">
+                             <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                             <span className="text-[8px] font-black text-emerald-600 uppercase">Submetido</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-1 opacity-20">
+                             <Clock className="h-4 w-4 text-gray-400" />
+                             <span className="text-[8px] font-black text-gray-400 uppercase">Pendente</span>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -218,12 +252,27 @@ export const Orders: React.FC<OrdersProps> = ({ onNavigate }) => {
                 <button onClick={() => setSelectedOrderId(null)} className="p-2 hover:bg-gray-50 rounded-full"><XCircle size={20} className="text-gray-300" /></button>
               </h3>
               
-              <div className="space-y-4 mb-8">
+              <div className="space-y-3 mb-8">
                 <button 
                   onClick={() => reprintInvoice(selectedOrder)}
                   className="w-full py-4 bg-indigo-50 text-indigo-700 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-indigo-100 flex items-center justify-center gap-3 hover:bg-indigo-600 hover:text-white transition-all"
                 >
-                  <Printer size={16} /> Imprimir 2ª Via
+                  <Printer size={16} /> Reimprimir Fatura (2ª Via)
+                </button>
+                <button 
+                  onClick={() => reprintInvoice(selectedOrder, true)}
+                  className="w-full py-4 bg-amber-50 text-amber-700 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-amber-100 flex items-center justify-center gap-3 hover:bg-amber-500 hover:text-white transition-all"
+                >
+                  <FileText size={16} /> Gerar Proforma
+                </button>
+                <button 
+                  onClick={() => {
+                    const printData = { ...selectedOrder, docType: 'DELIVERY_NOTE' };
+                    printDocument(printData, siteSettings, invoiceSettings, rate);
+                  }}
+                  className="w-full py-4 bg-emerald-50 text-emerald-700 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-emerald-100 flex items-center justify-center gap-3 hover:bg-emerald-600 hover:text-white transition-all"
+                >
+                  <Truck size={16} /> Nota de Entrega
                 </button>
                 <button 
                   onClick={() => handleEditOrder(selectedOrder)}
@@ -235,11 +284,11 @@ export const Orders: React.FC<OrdersProps> = ({ onNavigate }) => {
 
               <div className="space-y-6 pt-6 border-t border-gray-100">
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Artigos da Venda</p>
-                {selectedOrder.items.map((item, idx) => (
+                {selectedOrder.items.map((item: any, idx) => (
                   <div key={idx} className="flex gap-4 items-center">
-                    <img src={item.image} className="h-10 w-10 rounded-lg border object-cover" />
+                    <img src={item.image || item.product?.images?.[0]} className="h-10 w-10 rounded-lg border object-cover" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black text-gray-800 truncate">{item.name}</p>
+                      <p className="text-xs font-black text-gray-800 truncate">{item.product?.name || item.name || 'Artigo sem nome'}</p>
                       <p className="text-[10px] text-indigo-600 font-bold">{item.quantity}x • {formatPrice(item.price)}</p>
                     </div>
                   </div>

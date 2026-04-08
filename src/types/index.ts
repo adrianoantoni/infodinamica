@@ -4,7 +4,9 @@ export enum OrderStatus {
   CONFIRMED = 'Confirmed',
   SHIPPED = 'Shipped',
   DELIVERED = 'Delivered',
-  CANCELLED = 'Cancelled'
+  CANCELLED = 'Cancelled',
+  EM_VERIFICACAO = 'EM VERIFICAÇÃO',
+  APROVADO = 'APROVADO'
 }
 
 export enum MovementType {
@@ -34,6 +36,7 @@ export interface Product {
   subCategory?: string;
   specificItem?: string;
   brand: string;
+  sku?: string;
   images: string[];
   stock: number;
   minStock: number;
@@ -64,15 +67,53 @@ export interface Customer {
   phone: string;
   type: 'singular' | 'empresa';
   balance: number;
+  points?: number;
+  address?: string;
+  userId?: string;
   createdAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  content: string;
+  senderId: string;
+  sender: { id: string, name: string, role: string };
+  receiverId: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface PaymentProof {
+  id: string;
+  saleId: string;
+  customerId: string;
+  amount: number;
+  receiptImage: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  adminNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: 'admin' | 'gerente' | 'vendedor' | 'customer';
+  token?: string;
+  lastActive?: string;
+  customer?: Customer;
 }
 
 export interface Order {
   id: string;
+  invoiceNumber?: string;
   customerId: string;
   customerName: string;
   items: CartItem[];
   total: number;
+  tax?: number;
+  discount?: number;
   paidAmount?: number;
   balanceUsed?: number;
   status: OrderStatus;
@@ -81,6 +122,7 @@ export interface Order {
   paymentMethod: string;
   source?: 'direct' | 'mercadolivre' | 'pos';
   externalId?: string;
+  docType?: string | 'FATURA' | 'PROFORMA';
 }
 
 export interface StockMovement {

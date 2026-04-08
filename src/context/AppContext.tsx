@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { Product, Order, CartItem, StockMovement, OrderStatus, MovementType, MarketplaceLog, Language, Currency, Customer } from '@/types';
+import { Product, Order, CartItem, StockMovement, OrderStatus, MovementType, MarketplaceLog, Language, Currency, Customer, User } from '@/types';
 import { MOCK_PRODUCTS, EXCHANGE_RATES, CURRENCY_SYMBOLS, TRANSLATIONS } from '@/constants';
 import { apiService } from '@/services/api';
 
@@ -38,6 +38,7 @@ interface AppContextType {
   wishlist: string[];
   compareList: string[];
   stockMovements: StockMovement[];
+  stockMovementsTotal: number;
   marketplaceLogs: MarketplaceLog[];
   invoiceSettings: InvoiceSettings;
   siteSettings: SiteSettings;
@@ -55,16 +56,18 @@ interface AppContextType {
   updateCartQuantity: (productId: string, quantity: number, variationId?: string) => void;
   toggleWishlist: (productId: string) => void;
   toggleCompare: (productId: string) => void;
-  placeOrder: (orderData: Partial<Order>) => void;
+  placeOrder: (orderData: Partial<Order> & { docType?: string, skipSync?: boolean }) => Promise<Order | null>;
   updateOrder: (orderId: string, orderData: Partial<Order>) => void;
   setEditingOrder: (order: Order | null) => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
-  addStockMovement: (movement: Partial<StockMovement>) => void;
+  addStockMovement: (movement: Partial<StockMovement>) => Promise<void>;
+  fetchStockMovements: (params?: { productId?: string; type?: string; page?: number }) => Promise<void>;
+  fetchCustomerOrders: (customerId: string) => Promise<void>;
   addProduct: (product: Product) => void;
   updateProduct: (product: Product) => void;
   deleteProduct: (productId: string) => void;
   addCustomer: (customer: Customer) => void;
-  updateCustomerBalance: (customerId: string, amount: number) => void;
+  updateCustomerBalance: (customerId: string, amount: number, type?: 'TOPUP' | 'DEDUCT') => Promise<any>;
   updateInvoiceSettings: (settings: Partial<InvoiceSettings>) => void;
   updateSiteSettings: (settings: Partial<SiteSettings>) => void;
   addToast: (message: string, type?: Toast['type']) => void;
@@ -74,10 +77,13 @@ interface AppContextType {
   syncAllToML: () => Promise<void>;
   fetchMLOrders: () => Promise<void>;
   isLoggedIn: boolean;
-  userRole: 'admin' | 'customer' | null;
+  userRole: 'admin' | 'gerente' | 'vendedor' | 'customer' | null;
   userName: string | null;
   login: (credentials: any) => Promise<void>;
   logout: () => void;
+  isLoading: boolean;
+  user: User | null;
+  fetchOrders: (params?: { search?: string; status?: string; startDate?: string; endDate?: string; page?: number; limit?: number }) => Promise<{ sales: any[], total: number, page: number, totalPages: number }>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -87,19 +93,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [orders, setOrders] = useState<Order[]>([]);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([
-    { id: 'c-1', name: 'João Silva', email: 'joao@nexus.com', nif: '123456789', phone: '923000111', type: 'singular', balance: 25000, createdAt: new Date().toISOString() },
-    { id: 'c-2', name: 'Nexus Tech Lda', email: 'contato@nexustech.ao', nif: '540112233', phone: '924000222', type: 'empresa', balance: 500000, createdAt: new Date().toISOString() }
-  ]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [compareList, setCompareList] = useState<string[]>([]);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+  const [stockMovementsTotal, setStockMovementsTotal] = useState(0);
   const [marketplaceLogs, setMarketplaceLogs] = useState<MarketplaceLog[]>([]);
   const [isMLConnected, setIsMLConnected] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState<'admin' | 'customer' | null>(null);
+  const [userRole, setUserRole] = useState<'admin' | 'gerente' | 'vendedor' | 'customer' | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   const [language, setLanguage] = useState<Language>('pt');
   const [currency, setCurrency] = useState<Currency>('AOA');
@@ -110,35 +115,79 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const loadInitialData = async () => {
       try {
         setIsLoading(true);
-        const [dbProducts, dbCustomers, dbSettings] = await Promise.all([
-          apiService.getProducts(),
-          apiService.getCustomers(),
-          apiService.getSettings()
-        ]);
-
-        if (dbProducts?.length > 0) {
-          // Map backend fields to frontend types if necessary
-          const mappedProducts = dbProducts.map((p: any) => ({
-            ...p,
-            images: Array.isArray(p.images) ? p.images : (p.image ? [p.image] : []),
-            reviewsCount: p.reviews || 0,
-            featured: p.isDeal || false,
-            variations: p.variations || []
-          }));
-          setProducts(mappedProducts);
+        
+        // Fetch data individually to handle failures gracefully
+        try {
+          const dbProducts = await apiService.getProducts();
+          if (dbProducts?.length > 0) {
+            const mappedProducts = dbProducts.map((p: any) => ({
+              ...p,
+              images: Array.isArray(p.images) ? p.images : (p.image ? [p.image] : []),
+              reviewsCount: p.reviews || 0,
+              featured: p.isDeal || false,
+              variations: p.variations || []
+            }));
+            setProducts(mappedProducts);
+          }
+        } catch (e) {
+          console.error("Failed to fetch products:", e);
         }
 
-        if (dbCustomers?.length > 0) {
-          setCustomers(dbCustomers);
+        try {
+          const dbCustomers = await apiService.getCustomers();
+          if (dbCustomers?.length > 0) {
+            setCustomers(dbCustomers);
+          }
+        } catch (e) {
+          console.error("Failed to fetch customers (likely unauthorized):", e);
         }
 
-        if (dbSettings) {
-          setSiteSettings(dbSettings);
+        try {
+          const dbSettings = await apiService.getSettings();
+          if (dbSettings) {
+             // Map backend SiteSettings to frontend states
+             setSiteSettings({
+                siteName: dbSettings.siteName || 'Infodinamica',
+                siteLogo: dbSettings.siteLogo || '/system_logo.jpg',
+                siteDescription: dbSettings.siteDescription || ''
+             });
+             setInvoiceSettings(prev => ({
+                ...prev,
+                companyName: dbSettings.siteName || prev.companyName,
+                nif: dbSettings.nif || prev.nif,
+                phone: dbSettings.phone || prev.phone,
+                logo: dbSettings.siteLogo || prev.logo,
+                address: dbSettings.address || prev.address,
+                iban: dbSettings.bankAccount || prev.iban,
+                bankName: dbSettings.bankName || prev.bankName,
+             }));
+          }
+        } catch (e) {
+          console.error("Failed to fetch settings:", e);
+        }
+
+        // Fetch stock movements from DB
+        try {
+          const result = await apiService.getStockMovements({ limit: 100 });
+          if (result?.movements) {
+            setStockMovements(result.movements.map((m: any) => ({
+              id: m.id,
+              productId: m.productId,
+              type: m.type === 'ENTRY' ? MovementType.ENTRY : m.type === 'EXIT' ? MovementType.EXIT : MovementType.ADJUSTMENT,
+              quantity: m.quantity,
+              reason: m.reason,
+              user: m.user,
+              date: m.createdAt
+            })));
+            setStockMovementsTotal(result.total || 0);
+          }
+        } catch (e) {
+          console.error("Failed to fetch stock movements:", e);
         }
       } catch (error) {
-        addToast('Erro ao carregar dados do servidor. Usando dados locais.', 'warning');
+        addToast('Erro crítico ao ligar ao servidor.', 'error');
       } finally {
-        setIsLoading(false);
+        // isLoading is now managed in fetchData()
       }
     };
 
@@ -146,11 +195,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const token = localStorage.getItem('nexus_token');
       if (token) {
         try {
-          const user = await apiService.getMe();
-          localStorage.setItem('nexus_user', JSON.stringify(user));
+          const userData = await apiService.getMe();
+          localStorage.setItem('nexus_user', JSON.stringify(userData));
           setIsLoggedIn(true);
-          setUserRole(user.role.toLowerCase());
-          setUserName(user.name);
+          setUserRole(userData.role.toLowerCase());
+          setUserName(userData.name);
+          setUser(userData);
         } catch (error: any) {
           console.error('Session check failed:', error);
           logout();
@@ -159,12 +209,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsLoggedIn(false);
         setUserRole(null);
       }
-      setIsLoading(false); // Ensure loading is finished after check
+      // isLoading is now managed in fetchData()
     };
 
     const fetchData = async () => {
-      await loadInitialData();
-      await checkSession();
+      try {
+        await loadInitialData();
+        await checkSession();
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     fetchData();
@@ -279,24 +333,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [addToast]);
 
-  const updateCustomerBalance = useCallback(async (customerId: string, amount: number) => {
+  const updateCustomerBalance = useCallback(async (customerId: string, amount: number, type: 'TOPUP' | 'DEDUCT' = 'TOPUP') => {
     try {
-      const customer = customers.find(c => c.id === customerId);
-      if (!customer) return;
-
-      const updatedBalance = (customer.balance || 0) + amount;
-      const updatedCustomer = { ...customer, balance: updatedBalance };
-      
-      // Persist to backend
-      await apiService.updateCustomer(updatedCustomer);
+      const result = await apiService.updateCustomerBalance(customerId, amount, type);
       
       // Update local state
-      setCustomers(prev => prev.map(c => c.id === customerId ? updatedCustomer : c));
-      addToast(`Saldo de ${customer.name} atualizado: ${formatPrice(updatedBalance)}`, 'success');
+      setCustomers(prev => prev.map(c => c.id === customerId ? result : c));
+      addToast(`Saldo de ${result.name} atualizado: ${formatPrice(result.balance)}`, 'success');
+      return result;
     } catch (error) {
       addToast('Erro ao atualizar saldo do cliente', 'error');
+      throw error;
     }
-  }, [customers, addToast, formatPrice]);
+  }, [addToast, formatPrice]);
 
   const updateSettings = useCallback(async (settings: SiteSettings) => {
     try {
@@ -308,40 +357,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [addToast]);
 
-  const addStockMovement = useCallback((movement: Partial<StockMovement>) => {
-    const newMovement: StockMovement = {
-      id: `MOV-${Date.now()}-${Math.floor(Math.random()*1000)}`,
-      productId: movement.productId!,
-      variationId: movement.variationId,
-      type: movement.type!,
-      quantity: movement.quantity!,
-      reason: movement.reason || 'Ajuste Manual',
-      user: movement.user || (userRole === 'admin' ? 'Administrador' : 'Sistema'),
-      date: new Date().toISOString(),
-    };
-    setStockMovements(prev => [newMovement, ...prev]);
-    
-    setProducts(prev => prev.map(p => {
-      if (p.id === newMovement.productId) {
-        const change = (newMovement.type === MovementType.ENTRY) ? newMovement.quantity : -newMovement.quantity;
-        
-        let updatedVariations = p.variations;
-        if (newMovement.variationId) {
-          updatedVariations = p.variations.map(v => 
-            v.id === newMovement.variationId ? { ...v, stock: Math.max(0, v.stock + change) } : v
-          );
-        }
-
-        const newTotalStock = Math.max(0, p.stock + change);
-        if (newTotalStock <= p.minStock && newMovement.type === MovementType.EXIT) {
-          addToast(`Atenção: Stock baixo para ${p.name}`, 'warning');
-        }
-
-        return { ...p, stock: newTotalStock, variations: updatedVariations };
+  const fetchStockMovements = useCallback(async (params?: { productId?: string; type?: string; page?: number }) => {
+    try {
+      const result = await apiService.getStockMovements({ ...params, limit: 100 });
+      if (result?.movements) {
+        setStockMovements(result.movements.map((m: any) => ({
+          id: m.id,
+          productId: m.productId,
+          type: m.type === 'ENTRY' ? MovementType.ENTRY : m.type === 'EXIT' ? MovementType.EXIT : MovementType.ADJUSTMENT,
+          quantity: m.quantity,
+          reason: m.reason,
+          user: m.user,
+          date: m.createdAt
+        })));
+        setStockMovementsTotal(result.total || 0);
       }
-      return p;
-    }));
-  }, [userRole, addToast]);
+    } catch (e) {
+      console.error('Failed to fetch stock movements:', e);
+    }
+  }, []);
+
+  const addStockMovement = useCallback(async (movement: Partial<StockMovement>) => {
+    const movementType = movement.type === MovementType.ENTRY ? 'ENTRY' : 'EXIT';
+    
+    try {
+      const result = await apiService.createStockMovement({
+        productId: movement.productId!,
+        type: movementType,
+        quantity: movement.quantity!,
+        reason: movement.reason || 'Ajuste Manual'
+      });
+
+      // Update local product stock
+      setProducts(prev => prev.map(p => {
+        if (p.id === movement.productId) {
+          const newStock = result.newStock;
+          if (newStock <= p.minStock && movementType === 'EXIT') {
+            addToast(`Atenção: Stock baixo para ${p.name}`, 'warning');
+          }
+          return { ...p, stock: newStock };
+        }
+        return p;
+      }));
+
+      // Add to local movements
+      const newMovement: StockMovement = {
+        id: result.movement.id,
+        productId: movement.productId!,
+        type: movement.type!,
+        quantity: movement.quantity!,
+        reason: movement.reason || 'Ajuste Manual',
+        user: result.movement.user,
+        date: result.movement.createdAt,
+      };
+      setStockMovements(prev => [newMovement, ...prev]);
+      setStockMovementsTotal(prev => prev + 1);
+
+    } catch (error: any) {
+      addToast(error.message || 'Erro ao registar movimentação de stock', 'error');
+      throw error;
+    }
+  }, [addToast]);
 
   const addToCart = useCallback((item: CartItem) => {
     const product = products.find(p => p.id === item.productId);
@@ -388,7 +464,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCart(prev => prev.map(i => (i.productId === id && i.variationId === varId) ? { ...i, quantity: Math.max(1, q) } : i));
   };
 
-  const placeOrder = useCallback((data: Partial<Order>) => {
+  const placeOrder = useCallback(async (data: Partial<Order> & { docType?: string, skipSync?: boolean }) => {
     const orderItems = data.items || [...cart];
     
     // Verificação de segurança final de stock
@@ -400,54 +476,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       if (item.quantity > available) {
         addToast(`Erro: O produto ${item.name} esgotou durante o processo.`, 'error');
-        return;
+        return null;
+      }
+    }
+
+    const initialSubtotal = data.total || orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+    const taxRate = invoiceSettings.taxEnabled ? (invoiceSettings.taxRate / 100) : 0;
+    const finalTax = initialSubtotal * taxRate;
+    const finalTotal = initialSubtotal + finalTax;
+
+    let recordedSale: any = null;
+    let finalDocId = data.id || `ORD-${Math.floor(Math.random() * 90000) + 10000}`;
+
+    if (!data.skipSync) {
+      try {
+        recordedSale = await apiService.createSale({
+          docType: data.docType || 'FATURA',
+          customerId: data.customerId === 'c-guest' ? null : data.customerId,
+          total: finalTotal,
+          tax: finalTax,
+          discount: 0,
+          paymentMethod: data.paymentMethod || 'Dinheiro',
+          items: orderItems.map(item => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price
+          }))
+        });
+        finalDocId = recordedSale.invoiceNumber;
+      } catch (err: any) {
+        throw new Error(err.message || 'Falha ao criar venda no servidor');
       }
     }
 
     const order: Order = {
-      id: data.id || `ORD-${Math.floor(Math.random() * 90000) + 10000}`,
+      id: finalDocId,
       customerId: data.customerId || 'c-guest',
       customerName: data.customerName || 'Cliente Direto',
       items: orderItems,
-      total: data.total || orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0),
-      status: OrderStatus.PENDING,
-      createdAt: new Date().toISOString(),
+      total: data.total || finalTotal,
+      tax: finalTax,
+      status: data.docType === 'PROFORMA' ? OrderStatus.PENDING : OrderStatus.CONFIRMED,
+      createdAt: recordedSale?.date || new Date().toISOString(),
       shippingAddress: data.shippingAddress || 'Levantamento em Loja',
       paymentMethod: data.paymentMethod || 'Dinheiro',
       source: data.source || 'direct',
       paidAmount: data.paidAmount,
-      balanceUsed: data.balanceUsed
-    };
+      balanceUsed: data.balanceUsed,
+      docType: data.docType || 'FATURA'
+    } as any;
 
-    // PERSIST TO BACKEND
-    apiService.createSale({
-      invoiceNumber: order.id,
-      customerId: order.customerId === 'c-guest' ? null : order.customerId,
-      total: order.total,
-      tax: order.total * 0.14, // Assuming 14% IVA
-      discount: 0,
-      paymentMethod: order.paymentMethod,
-      items: order.items.map(item => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        price: item.price
-      }))
-    }).catch(err => console.error('Failed to sync sale to backend:', err));
-
-    orderItems.forEach(item => {
-      addStockMovement({
-        productId: item.productId,
-        variationId: item.variationId,
-        type: MovementType.EXIT,
-        quantity: item.quantity,
-        reason: `Venda ${order.id}`
-      });
-    });
+    // Backend already creates StockMovements in the sale transaction
+    // Just update local product stock to reflect the sale
+    if (!data.skipSync) {
+      setProducts(prev => prev.map(p => {
+        const soldItem = orderItems.find(i => i.productId === p.id);
+        if (soldItem) {
+          const newStock = Math.max(0, p.stock - soldItem.quantity);
+          if (newStock <= p.minStock) {
+            addToast(`Atenção: Stock baixo para ${p.name}`, 'warning');
+          }
+          return { ...p, stock: newStock };
+        }
+        return p;
+      }));
+    }
 
     setOrders(prev => [order, ...prev]);
     if (!data.items) setCart([]);
-    addToast(`Encomenda ${order.id} registada com sucesso`);
-  }, [cart, products, addStockMovement, addToast]);
+    addToast(`${data.docType === 'PROFORMA' ? 'Proforma' : 'Encomenda'} ${order.id} registada com sucesso`);
+    
+    return order;
+  }, [cart, products, addToast]);
 
   const updateOrder = useCallback((orderId: string, orderData: Partial<Order>) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...orderData } : o));
@@ -458,8 +558,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addToast(`Encomenda ${id} marcada como ${status}`, 'info');
   };
 
-  const updateInvoiceSettings = (settings: Partial<InvoiceSettings>) => setInvoiceSettings(prev => ({ ...prev, ...settings }));
-  const updateSiteSettings = (settings: Partial<SiteSettings>) => setSiteSettings(prev => ({ ...prev, ...settings }));
+  const updateInvoiceSettings = async (settings: Partial<InvoiceSettings>) => {
+    const newSettings = { ...invoiceSettings, ...settings };
+    setInvoiceSettings(newSettings);
+    try {
+      await apiService.updateSettings({
+        siteName: newSettings.companyName,
+        nif: newSettings.nif,
+        phone: newSettings.phone,
+        siteLogo: newSettings.logo,
+        address: newSettings.address,
+        bankAccount: newSettings.iban,
+        bankName: newSettings.bankName
+      });
+      addToast('Configurações de faturação atualizadas');
+    } catch (error) {
+      addToast('Erro ao persistir configurações', 'error');
+    }
+  };
+
+  const updateSiteSettings = async (settings: Partial<SiteSettings>) => {
+    const newSettings = { ...siteSettings, ...settings };
+    setSiteSettings(newSettings);
+    try {
+      await apiService.updateSettings({
+        siteName: newSettings.siteName,
+        siteLogo: newSettings.siteLogo,
+        siteDescription: newSettings.siteDescription
+      });
+      addToast('Configurações do site atualizadas');
+    } catch (error) {
+      addToast('Erro ao persistir configurações', 'error');
+    }
+  };
 
   const toggleMLConnection = useCallback(() => {
     setIsMLConnected(prev => !prev);
@@ -490,6 +621,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsLoggedIn(true);
       setUserRole(data.role.toLowerCase());
       setUserName(data.name);
+      setUser(data);
       addToast(`Bem-vindo, ${data.name}!`);
     } catch (error: any) {
       addToast(error.message || 'Erro ao fazer login', 'error');
@@ -503,6 +635,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsLoggedIn(false); 
     setUserRole(null);
     setUserName(null);
+    setUser(null);
     addToast('Sessão terminada', 'info');
     // Force redirect to login
     if (window.location.pathname.includes('/admin')) {
@@ -510,14 +643,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [addToast]);
 
+  const fetchCustomerOrders = useCallback(async (customerId: string) => {
+    try {
+      const data = await apiService.getCustomerHistory(customerId);
+      const mappedOrders = data.map((s: any) => ({
+        ...s,
+        id: s.invoiceNumber || s.id,
+        customerName: s.customer?.name || user?.name || 'Cliente',
+        items: s.items.map((item: any) => ({
+          ...item,
+          productId: item.productId,
+          name: item.product?.name || 'Produto',
+          image: item.product?.images?.[0] || item.product?.image || '',
+          price: item.price,
+          quantity: item.quantity
+        }))
+      }));
+      setOrders(mappedOrders);
+    } catch (error) {
+      console.error("Failed to fetch customer orders:", error);
+      addToast("Erro ao carregar seu histórico", "error");
+    }
+  }, [user, addToast]);
+
+  const fetchOrders = async (params?: { search?: string; status?: string; startDate?: string; endDate?: string; page?: number; limit?: number }) => {
+    try {
+      const data = await apiService.getSales(params);
+      return {
+        sales: data.sales.map((s: any) => ({
+           ...s,
+           customerName: s.customer?.name || 'CONSUMIDOR FINAL',
+        })),
+        total: data.total,
+        page: data.page,
+        totalPages: data.totalPages
+      };
+    } catch (error) {
+      console.error("Failed to fetch orders:", error);
+      addToast("Erro ao carregar vendas", "error");
+      return { sales: [], total: 0, page: 1, totalPages: 1 };
+    }
+  };
+
   return (
     <AppContext.Provider value={{
-      products, orders, customers, cart, wishlist, compareList, stockMovements, marketplaceLogs, isMLConnected, invoiceSettings, siteSettings,
+      products, orders, customers, cart, wishlist, compareList, stockMovements, stockMovementsTotal, marketplaceLogs, isMLConnected, invoiceSettings, siteSettings,
       language, currency, editingOrder, toasts, t, setLanguage, setCurrency, formatPrice,
-      addToCart, removeFromCart, updateCartQuantity, toggleWishlist, toggleCompare, placeOrder, updateOrder, setEditingOrder, updateOrderStatus, addStockMovement,
+      addToCart, removeFromCart, updateCartQuantity, toggleWishlist, toggleCompare, placeOrder, updateOrder, setEditingOrder, updateOrderStatus, addStockMovement, fetchStockMovements,
       addProduct, updateProduct, deleteProduct, addCustomer, updateCustomerBalance, updateInvoiceSettings, updateSiteSettings, addToast, removeToast,
       toggleMLConnection, linkProductToML, syncAllToML, fetchMLOrders,
-      isLoggedIn, userRole, userName, login, logout
+      isLoggedIn, userRole, userName, login, logout, isLoading, user, fetchOrders, fetchCustomerOrders
     }}>
       {children}
     </AppContext.Provider>

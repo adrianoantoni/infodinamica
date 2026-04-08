@@ -5,10 +5,11 @@ import {
   Search, ShoppingCart, ChevronLeft, 
   Loader2, Plus, Minus, UserCircle, X, Check,
   Wallet, Banknote, CreditCard, Printer, UserPlus,
-  Building2, User as UserIcon
+  Building2, User as UserIcon, FileText, Receipt
 } from 'lucide-react';
 import { Product, Customer, OrderStatus } from '@/types';
 import { EXCHANGE_RATES } from '@/constants';
+import { printDocument } from '@/utils/documentTemplate';
 
 interface NewSaleProps {
   onNavigate: (page: string) => void;
@@ -104,223 +105,75 @@ export const NewSale: React.FC<NewSaleProps> = ({ onNavigate }) => {
     return acc + (price * rate * item.quantity);
   }, 0), [saleItems, rate]);
 
-  const taxAmount = 0;
-  const grandTotal = subtotal;
-  const change = (Number(receivedAmount) > grandTotal) ? (Number(receivedAmount) - grandTotal) : 0;
+  const taxRate = applyTax ? (currentTaxRate / 100) : 0;
+  const taxAmount = subtotal * taxRate;
+  const grandTotal = subtotal + taxAmount;
+  const change = (paymentMethod === 'Dinheiro' && Number(receivedAmount) > grandTotal) ? (Number(receivedAmount) - grandTotal) : 0;
 
-  const handlePrintReceipt = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const dateStr = new Date().toLocaleString('pt-AO');
-    const orderId = `FR-${Date.now().toString().slice(-6)}`;
-    const qrData = encodeURIComponent(`TYPE:FATURA-RECIBO|DOC:${orderId}|NIF:${selectedCustomer?.nif || '999999999'}|TOTAL:${grandTotal.toFixed(2)}`);
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${qrData}`;
-
-    const ivaAmount = grandTotal * 0.14; // Assuming 14% IVA
-    const subtotalSemIva = grandTotal - ivaAmount;
-
-    const itemsHtml = saleItems.map(item => {
-      const price = item.variationId ? (item.product.variations.find(v => v.id === item.variationId)?.price || item.product.price) : item.product.price;
-      return `
-        <tr>
-          <td style="padding: 6px 8px; border-bottom: 1px solid #f3f4f6; text-align: left;">${item.product.name}${item.variationId ? ` (${item.variationId})` : ''}</td>
-          <td style="padding: 6px 8px; border-bottom: 1px solid #f3f4f6; text-align: center;">${item.quantity}</td>
-          <td style="padding: 6px 8px; border-bottom: 1px solid #f3f4f6; text-align: right;">${(price * rate).toLocaleString('pt-AO', { minimumFractionDigits: 2 })}</td>
-          <td style="padding: 6px 8px; border-bottom: 1px solid #f3f4f6; text-align: right; font-weight: bold;">${(price * rate * item.quantity).toLocaleString('pt-AO', { minimumFractionDigits: 2 })}</td>
-        </tr>
-      `;
-    }).join('');
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Fatura Recibo - ${orderId}</title>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
-            body { font-family: 'Inter', sans-serif; padding: 30px 40px; color: #111827; line-height: 1.4; font-size: 11px; margin: 0; }
-            .header-container { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; }
-            .logo-section { max-width: 50%; }
-            .logo-section img { max-height: 60px; margin-bottom: 15px; }
-            .logo-section h1 { margin: 0 0 10px 0; color: #111827; font-weight: 900; text-transform: uppercase; font-size: 20px; }
-            .company-details { font-size: 10px; color: #4b5563; line-height: 1.5; }
-            .doc-info-section { text-align: right; }
-            .doc-title { margin: 0 0 15px 0; font-weight: 900; color: #111827; font-size: 24px; text-transform: uppercase; }
-            .doc-meta { font-size: 10px; color: #4b5563; }
-            .doc-meta table { width: auto; margin-left: auto; border-collapse: collapse; }
-            .doc-meta td { padding: 4px 12px; border: 1px solid #e5e7eb; text-align: right; }
-            .doc-meta td:first-child { background: #f9fafb; font-weight: 700; color: #374151; }
-            
-            .client-section { display: flex; justify-content: space-between; margin-bottom: 30px; }
-            .client-box { width: 48%; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
-            .client-box-title { text-transform: uppercase; color: #6b7280; font-weight: 900; margin: 0 0 8px 0; font-size: 9px; letter-spacing: 0.5px; }
-            .client-name { font-size: 12px; font-weight: 700; margin: 0 0 4px 0; color: #111827; }
-            .client-detail { font-size: 10px; color: #4b5563; margin: 2px 0; }
-            
-            .items-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            .items-table th { background: #f9fafb; padding: 10px; text-align: left; border-bottom: 2px solid #111827; font-size: 10px; text-transform: uppercase; color: #111827; font-weight: 700; }
-            .items-table td { padding: 10px; border-bottom: 1px solid #e5e7eb; font-size: 10px; color: #374151; }
-            .items-table th.text-right, .items-table td.text-right { text-align: right; }
-            .items-table th.text-center, .items-table td.text-center { text-align: center; }
-            
-            .summary-area { display: flex; justify-content: space-between; align-items: flex-start; gap: 30px; page-break-inside: avoid; }
-            .qr-container { display: flex; flex-direction: column; align-items: center; }
-            .qr-container img { width: 110px; height: 110px; border: 1px solid #e5e7eb; padding: 5px; border-radius: 8px; background: #fff; }
-            .qr-label { font-size: 8px; color: #6b7280; text-align: center; margin-top: 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-            
-            .totals-box { width: 300px; }
-            .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-size: 11px; color: #4b5563; }
-            .total-row.grand { border-bottom: none; border-top: 2px solid #111827; padding-top: 12px; margin-top: 4px; font-weight: 900; font-size: 16px; color: #111827; }
-            
-            .bank-info { margin-top: 30px; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb; font-size: 10px; color: #374151; page-break-inside: avoid; }
-            .bank-info-title { margin: 0 0 8px 0; font-weight: 700; color: #111827; text-transform: uppercase; font-size: 10px; }
-            .bank-info p { margin: 4px 0; }
-            
-            .signature-area { margin-top: 50px; display: flex; justify-content: flex-end; page-break-inside: avoid; }
-            .signature-box { text-align: center; width: 250px; }
-            .signature-line { border-top: 1px solid #111827; margin-bottom: 8px; }
-            .signature-title { margin: 0; font-size: 10px; font-weight: 700; color: #111827; text-transform: uppercase; }
-            .signature-name { margin: 4px 0 0 0; font-size: 10px; color: #4b5563; }
-            
-            .footer { margin-top: 40px; text-align: center; font-size: 9px; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 15px; page-break-inside: avoid; }
-            .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 100px; font-weight: 900; color: rgba(0,0,0,0.03); pointer-events: none; z-index: -1; white-space: nowrap; }
-            
-            @media print { 
-              .no-print { display: none; } 
-              body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
-            }
-          </style>
-        </head>
-        <body>
-          <div class="watermark">FATURA RECIBO</div>
-          
-          <div class="header-container">
-            <div class="logo-section">
-              ${siteSettings.siteLogo ? `<img src="${siteSettings.siteLogo}" alt="${invoiceSettings.companyName}" />` : `<h1>${invoiceSettings.companyName}</h1>`}
-              <div class="company-details">
-                <strong>${invoiceSettings.companyName}</strong><br>
-                NIF: ${invoiceSettings.nif}<br>
-                Endereço: ${invoiceSettings.address}<br>
-                Tel: ${invoiceSettings.phone}
-              </div>
-            </div>
-            <div class="doc-info-section">
-              <h2 class="doc-title">Fatura Recibo</h2>
-              <div class="doc-meta">
-                <table>
-                  <tr><td>Data</td><td>${dateStr}</td></tr>
-                  <tr><td>Referência</td><td>${orderId}</td></tr>
-                  <tr><td>Moeda</td><td>AOA</td></tr>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <div class="client-section">
-            <div class="client-box">
-              <p class="client-box-title">Cliente</p>
-              <p class="client-name">${selectedCustomer?.name || 'CONSUMIDOR FINAL / CLIENTE GENÉRICO'}</p>
-              <p class="client-detail">NIF: ${selectedCustomer?.nif || '999999999'}</p>
-              ${selectedCustomer ? `<p class="client-detail" style="color: #4f46e5; font-weight: 700; margin-top: 6px;">SALDO WALLET: ${formatPrice(selectedCustomer.balance)}</p>` : ''}
-            </div>
-            <div class="client-box" style="visibility: hidden;">
-              <!-- Placeholder for alignment if needed -->
-            </div>
-          </div>
-
-          <table class="items-table">
-            <thead>
-              <tr>
-                <th>Descrição do Artigo</th>
-                <th class="text-center" style="width: 60px;">Qtd</th>
-                <th class="text-right" style="width: 120px;">Preço Unit.</th>
-                <th class="text-right" style="width: 120px;">Total</th>
-              </tr>
-            </thead>
-            <tbody>${itemsHtml}</tbody>
-          </table>
-
-          <div class="summary-area">
-            <div class="qr-container">
-              <img src="${qrCodeUrl}" alt="QR Code" />
-              <p class="qr-label">Documento Válido</p>
-            </div>
-            <div class="totals-box">
-              <div class="total-row"><span>Subtotal:</span><span>${subtotalSemIva.toLocaleString('pt-AO', { minimumFractionDigits: 2 })} Kz</span></div>
-              <div class="total-row"><span>IVA (14%):</span><span>${ivaAmount.toLocaleString('pt-AO', { minimumFractionDigits: 2 })} Kz</span></div>
-              <div class="total-row grand"><span>TOTAL A PAGAR:</span><span>${grandTotal.toLocaleString('pt-AO', { minimumFractionDigits: 2 })} Kz</span></div>
-              
-              <div style="margin-top: 12px; border-top: 1px dashed #d1d5db; padding-top: 10px;">
-                <div class="total-row"><span>Método de Pagamento:</span><span>${paymentMethod}</span></div>
-                <div class="total-row"><span>Valor Entregue:</span><span>${Number(receivedAmount).toLocaleString('pt-AO', { minimumFractionDigits: 2 })} Kz</span></div>
-                <div class="total-row"><span>Troco:</span><span style="color: #10b981; font-weight: 700;">${change.toLocaleString('pt-AO', { minimumFractionDigits: 2 })} Kz</span></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="bank-info">
-            <p class="bank-info-title">Coordenadas Bancárias para Pagamento</p>
-            <p><strong>Banco:</strong> ${invoiceSettings.bankName} &nbsp;|&nbsp; <strong>IBAN:</strong> ${invoiceSettings.iban}</p>
-            <p><strong>Referência de Pagamento:</strong> ${orderId}</p>
-          </div>
-
-          <div class="signature-area">
-            <div class="signature-box">
-              <div class="signature-line"></div>
-              <p class="signature-title">O Representante</p>
-              <p class="signature-name">${invoiceSettings.representativeName}</p>
-            </div>
-          </div>
-
-          <div class="footer">
-            <p style="margin: 0 0 4px 0; font-weight: 700; color: #374151;">Este documento serve de quitação após bom pagamento.</p>
-            <p style="margin: 0;">Software: Infodinamica v3.5 | Processado por Computador</p>
-          </div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    setTimeout(() => printWindow.print(), 500);
-  };
-
-  const handleFinishSale = () => {
+  const handleFinishSale = async (docType: 'FATURA' | 'PROFORMA' = 'FATURA') => {
     if (saleItems.length === 0) return;
-    if (selectedCustomer?.type === 'empresa' && !selectedCustomer.nif) {
-      addToast('NIF obrigatório para empresas.', 'error');
-      return;
-    }
-    if (paymentMethod === 'Dinheiro' && Number(receivedAmount) < grandTotal) {
+    if (paymentMethod === 'Dinheiro' && docType === 'FATURA' && Number(receivedAmount) < grandTotal) {
       addToast('Valor insuficiente.', 'error');
       return;
     }
+    if (paymentMethod === 'Wallet' && docType === 'FATURA') {
+      if (!selectedCustomer) { addToast('Selecione um cliente para usar a Carteira.', 'warning'); return; }
+      if (selectedCustomer.balance < grandTotal) { addToast('Saldo insuficiente na conta do cliente.', 'error'); return; }
+    }
     setIsFinishing(true);
-    handlePrintReceipt();
+
     const orderItems = saleItems.map(item => ({
       ...item.product,
       productId: item.product.id,
       quantity: item.quantity,
       variationId: item.variationId,
-      image: item.product.images?.[0] || ''
+      image: item.product.images?.[0] || '',
+      price: item.variationId 
+        ? (item.product.variations.find(v => v.id === item.variationId)?.price || item.product.price)
+        : item.product.price
     }));
 
     if (generateBalance && selectedCustomer && change > 0) {
-      // In this system, 'change' is in AOA, we need to convert back to base currency if needed
-      // or just pass the AOA value if updateCustomerBalance expects it.
-      // Based on formatPrice in AppContext, balance seems to be in AOA (or at least handled as such).
       updateCustomerBalance(selectedCustomer.id, change);
     }
 
-    placeOrder({ 
+    const resultOrder = await placeOrder({ 
       items: orderItems,
-      total: grandTotal/rate, 
+      total: subtotal / rate, // Sending subtotal to match backend calculation
       source: 'pos', 
+      docType,
       customerName: selectedCustomer?.name || 'Venda POS',
       paymentMethod: paymentMethod,
       customerId: selectedCustomer?.id,
-      paidAmount: Number(receivedAmount) / rate,
+      paidAmount: paymentMethod === 'Wallet' ? grandTotal / rate : Number(receivedAmount) / rate,
     });
+
+    // Print after backend confirms the sequential invoice number
+    if (resultOrder) {
+      const salePayload = {
+        ...resultOrder,
+        docType,
+        customerName: selectedCustomer?.name || 'CONSUMIDOR FINAL',
+        customerNif: selectedCustomer?.nif || '999999999',
+        date: new Date().toISOString(),
+        total: resultOrder.total,
+        tax: resultOrder.tax,
+        discount: resultOrder.discount || 0,
+        items: orderItems.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          variationId: item.variationId
+        }))
+      };
+      printDocument(salePayload, siteSettings, invoiceSettings, rate);
+    }
+
     setTimeout(() => { onNavigate('admin-orders'); setIsFinishing(false); }, 800);
   };
+
+
+
 
   return (
     <div className="p-4 md:p-8 flex flex-col lg:flex-row gap-8 h-[calc(100vh-64px)] overflow-hidden bg-gray-50/50">
@@ -461,13 +314,21 @@ export const NewSale: React.FC<NewSaleProps> = ({ onNavigate }) => {
              </div>
           </div>
 
-          <div className="flex gap-4">
-             <button onClick={() => handlePrintReceipt()} className="flex-1 py-5 bg-white/10 hover:bg-white/20 text-white rounded-[1.5rem] font-black uppercase text-[11px] tracking-widest transition-all flex items-center justify-center gap-3 border border-white/20 active:scale-95 shadow-xl">
-                <Printer size={20}/> F. RECIBO
+          <div className="flex gap-3">
+             <button 
+               onClick={() => handleFinishSale('PROFORMA')}
+               disabled={isFinishing || saleItems.length === 0}
+               className="flex-1 py-5 bg-white/10 hover:bg-white/20 text-white rounded-[1.5rem] font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2 border border-white/20 active:scale-95"
+             >
+               <FileText size={16}/> Proforma
              </button>
-             <button disabled={isFinishing || saleItems.length === 0} onClick={handleFinishSale} className="flex-[2] py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xs shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-95">
-                {isFinishing ? <Loader2 className="animate-spin" /> : <Check size={22} className="text-[#fed700]"/>}
-                {p.btn_finish}
+             <button 
+               disabled={isFinishing || saleItems.length === 0} 
+               onClick={() => handleFinishSale('FATURA')} 
+               className="flex-[2] py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xs shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-95"
+             >
+               {isFinishing ? <Loader2 className="animate-spin" /> : <Receipt size={20} className="text-[#fed700]"/>}
+               Emitir Fatura
              </button>
           </div>
         </div>

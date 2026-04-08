@@ -40,6 +40,39 @@ export const Settings: React.FC = () => {
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">NIF (Número de Identificação Fiscal)</label>
               <input type="text" value={localSettings.nif} onChange={e => setLocalSettings({...localSettings, nif: e.target.value})} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:ring-4 focus:ring-indigo-500/5 outline-none" />
             </div>
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Morada Sede / Fiscal</label>
+              <input type="text" value={localSettings.address || ''} onChange={e => setLocalSettings({...localSettings, address: e.target.value})} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:ring-4 focus:ring-indigo-500/5 outline-none" />
+            </div>
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Telefone de Contacto</label>
+              <input type="text" value={localSettings.phone || ''} onChange={e => setLocalSettings({...localSettings, phone: e.target.value})} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:ring-4 focus:ring-indigo-500/5 outline-none" />
+            </div>
+          </div>
+        </section>
+
+        {/* Tax Rules */}
+        <section className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl shadow-indigo-500/5 p-8">
+          <h3 className="font-black text-gray-900 mb-8 flex items-center gap-3 uppercase italic tracking-tight">
+            <Landmark className="text-indigo-600" /> Regras Fiscais & Taxas
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between mb-2">
+                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">IVA Padrão (%)</label>
+                 <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">Padrão: 14%</span>
+              </div>
+              <input type="number" value={localSettings.taxRate || 14} onChange={e => setLocalSettings({...localSettings, taxRate: Number(e.target.value)})} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:ring-4 focus:ring-indigo-500/5 outline-none" />
+            </div>
+            <div className="flex items-center gap-4 mt-6">
+               <button 
+                onClick={() => setLocalSettings({...localSettings, taxEnabled: !localSettings.taxEnabled})}
+                className={`w-14 h-8 rounded-full transition-all relative ${localSettings.taxEnabled ? 'bg-green-500' : 'bg-gray-200'}`}
+               >
+                 <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all shadow-md ${localSettings.taxEnabled ? 'left-7' : 'left-1'}`}></div>
+               </button>
+               <span className="text-xs font-black uppercase text-gray-900">Aplicar IVA em todas as vendas</span>
+            </div>
           </div>
         </section>
 

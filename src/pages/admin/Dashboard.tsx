@@ -12,9 +12,12 @@ import {
   Target,
   Sparkles,
   Loader2,
-  BrainCircuit
+  BrainCircuit,
+  Users
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { User } from '@/types';
+import { apiService } from '@/services/api';
 import { 
   ResponsiveContainer,
   AreaChart,
@@ -51,8 +54,26 @@ export const Dashboard: React.FC = () => {
   const totalRevenue = orders.reduce((acc, o) => acc + (o.status !== 'Cancelled' ? o.total : 0), 0);
 
   // AI Insights State
+  // AI Insights State
   const [aiInsight, setAiInsight] = useState<string | null>(null);
+  // Online Users State
+  const [onlineUsers, setOnlineUsers] = useState<User[]>([]);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
+  // Fetch online users
+  React.useEffect(() => {
+    const fetchOnline = async () => {
+      try {
+        const data = await apiService.getOnlineUsers();
+        setOnlineUsers(data);
+      } catch (e) {
+        console.error('Failed to fetch online users');
+      }
+    };
+    fetchOnline();
+    const interval = setInterval(fetchOnline, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Cálculo de Performance por Categoria
   const categoryStats = useMemo(() => {
@@ -121,27 +142,37 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xl shadow-indigo-500/5">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{d.revenue}</p>
-          <p className="text-3xl font-black text-gray-900 tracking-tighter">{formatPrice(totalRevenue)}</p>
-          <span className="text-[10px] text-green-600 font-bold flex items-center gap-1 mt-2 uppercase tracking-tighter">
-            <ArrowUpRight className="h-3 w-3" /> +12.4% vs mês anterior
-          </span>
-        </div>
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xl shadow-indigo-500/5">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{d.orders_count}</p>
-          <p className="text-3xl font-black text-gray-900 tracking-tighter">{orders.length}</p>
-        </div>
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xl shadow-indigo-500/5">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{d.active_products}</p>
-          <p className="text-3xl font-black text-gray-900 tracking-tighter">{products.length}</p>
-        </div>
-        <div className="bg-white p-6 rounded-3xl border-l-8 border-l-red-500 border border-gray-100 shadow-xl shadow-indigo-500/5">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{d.critical_stock}</p>
-          <p className="text-3xl font-black text-red-600 tracking-tighter">{lowStockProducts.length}</p>
-        </div>
-      </div>
+  <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
+    <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xl shadow-indigo-500/5">
+      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{d.revenue}</p>
+      <p className="text-3xl font-black text-gray-900 tracking-tighter">{formatPrice(totalRevenue)}</p>
+      <span className="text-[10px] text-green-600 font-bold flex items-center gap-1 mt-2 uppercase tracking-tighter">
+        <ArrowUpRight className="h-3 w-3" /> +12.4%
+      </span>
+    </div>
+    <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xl shadow-indigo-500/5">
+      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{d.orders_count}</p>
+      <p className="text-3xl font-black text-gray-900 tracking-tighter">{orders.length}</p>
+    </div>
+    <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xl shadow-indigo-500/5">
+      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{d.active_products}</p>
+      <p className="text-3xl font-black text-gray-900 tracking-tighter">{products.length}</p>
+    </div>
+    <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xl shadow-indigo-500/5">
+      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">Online Agora</p>
+      <p className="text-3xl font-black text-indigo-600 tracking-tighter flex items-center gap-2">
+        {onlineUsers.length}
+        <span className="flex h-3 w-3 relative">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-600"></span>
+        </span>
+      </p>
+    </div>
+    <div className="bg-white p-6 rounded-3xl border-l-8 border-l-red-500 border border-gray-100 shadow-xl shadow-indigo-500/5">
+      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{d.critical_stock}</p>
+      <p className="text-3xl font-black text-red-600 tracking-tighter">{lowStockProducts.length}</p>
+    </div>
+  </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-indigo-500/5">
@@ -196,15 +227,23 @@ export const Dashboard: React.FC = () => {
         <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-indigo-500/5">
           <h3 className="font-black text-gray-900 mb-6 flex items-center gap-2 uppercase tracking-tighter italic">
             <AlertTriangle className="h-4 w-4 text-amber-500" /> {d.rupture_risk}
+            {lowStockProducts.length > 0 && (
+              <span className="ml-auto text-[10px] font-black bg-red-100 text-red-600 px-3 py-1 rounded-full">{lowStockProducts.length}</span>
+            )}
           </h3>
           <div className="space-y-3">
-            {lowStockProducts.slice(0, 3).map(p => (
+            {lowStockProducts.slice(0, 5).map(p => (
               <div key={p.id} className="flex items-center justify-between p-4 bg-red-50 rounded-2xl border border-red-100">
                 <div>
                   <p className="text-xs font-black text-gray-900 uppercase truncate max-w-[120px]">{p.name}</p>
                   <p className="text-[10px] text-red-600 font-bold">STOCK: {p.stock} / MIN: {p.minStock}</p>
                 </div>
-                <Package className="h-5 w-5 text-red-400" />
+                <div className="flex items-center gap-2">
+                  <div className="w-16 h-1.5 bg-red-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-red-500 rounded-full" style={{ width: `${Math.min(100, (p.stock / Math.max(p.minStock, 1)) * 100)}%` }}></div>
+                  </div>
+                  <Package className="h-5 w-5 text-red-400" />
+                </div>
               </div>
             ))}
             {lowStockProducts.length === 0 && <p className="text-xs text-gray-400 italic">Todos os itens com stock saudável.</p>}

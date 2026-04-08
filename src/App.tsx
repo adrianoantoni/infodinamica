@@ -6,6 +6,7 @@ import { Footer } from '@/components/layout/Footer';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { Shop } from '@/pages/Shop';
 import { Login } from '@/pages/Login';
+import { Register } from '@/pages/Register';
 import { Categories } from '@/pages/Categories';
 import { ProductDetails } from '@/pages/ProductDetails';
 import { Wishlist } from '@/pages/Wishlist';
@@ -28,8 +29,12 @@ import { Reports } from '@/pages/admin/Reports';
 import { AdminUsers } from '@/pages/admin/AdminUsers';
 import { NewSale } from '@/pages/admin/NewSale';
 import { HomeManagement } from '@/pages/admin/HomeManagement';
+import { AuditLog } from '@/pages/admin/AuditLog';
+import { SupportChat } from '@/pages/admin/SupportChat';
+import { PendingPayments } from '@/pages/admin/PendingPayments';
 import { ForgotPassword } from '@/pages/ForgotPassword';
 import { ResetPassword } from '@/pages/ResetPassword';
+import { ChatFloatingButton } from '@/components/chat/ChatFloatingButton';
 import { CheckCircle2, Menu, X, Info, AlertTriangle, AlertCircle } from 'lucide-react';
 
 const ToastContainer: React.FC = () => {
@@ -67,15 +72,20 @@ const ToastContainer: React.FC = () => {
 const Main: React.FC = () => {
   // Determine initial page from URL or session
   const getInitialPage = () => {
+    // 1. Prioridade para o Hash da URL
+    const hash = window.location.hash.replace('#', '');
+    if (hash) return hash;
+
+    // 2. Fallback para Reset de Password via Path
     const path = window.location.pathname;
     if (path.startsWith('/reset-password/')) {
       const token = path.replace('/reset-password/', '');
       return token ? `reset-password-${token}` : 'home';
     }
     
-    // Restore admin session across page refreshes
-    const savedPage = sessionStorage.getItem('infodinamica_page');
-    return savedPage && savedPage.startsWith('admin-') ? savedPage : 'home';
+    // 3. Fallback final para LocalStorage
+    const savedPage = localStorage.getItem('infodinamica_page');
+    return savedPage || 'home';
   };
 
   const [currentPage, setCurrentPage] = useState(getInitialPage());
@@ -83,15 +93,31 @@ const Main: React.FC = () => {
   const [isAdminSidebarOpen, setIsAdminSidebarOpen] = useState(false);
   const [isAdminSidebarCollapsed, setIsAdminSidebarCollapsed] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const { isLoggedIn, userRole, logout, siteSettings } = useApp();
+  const { isLoggedIn, userRole, logout, siteSettings, isLoading } = useApp();
 
-  // Persist admin pages to sessionStorage
+  // 1. Persist current page to localStorage (except auth pages)
   useEffect(() => {
-    if (currentPage.startsWith('admin-')) {
-      sessionStorage.setItem('infodinamica_page', currentPage);
-    } else {
-      sessionStorage.removeItem('infodinamica_page');
+    const isAuthPage = ['login', 'forgot-password', 'register'].includes(currentPage) || currentPage.startsWith('reset-password-');
+    if (!isAuthPage) {
+      localStorage.setItem('infodinamica_page', currentPage);
+      // Sync URL hash
+      if (window.location.hash !== `#${currentPage}`) {
+        window.location.hash = currentPage;
+      }
     }
+  }, [currentPage]);
+
+  // 2. Listen for browser Back/Forward/Hash changes
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash && hash !== currentPage) {
+        setCurrentPage(hash);
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, [currentPage]);
 
   const handleNavigate = (page: string) => {
@@ -106,15 +132,51 @@ const Main: React.FC = () => {
   const isAdminView = currentPage.startsWith('admin-');
 
   const renderPage = () => {
+    if (isLoading) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+          <div className="w-16 h-16 border-4 border-gray-200 border-t-yellow-400 rounded-full animate-spin mb-4" />
+          <p className="text-gray-500 font-black uppercase tracking-widest text-[10px]">A verificar sessão...</p>
+        </div>
+      );
+    }
+
     if (currentPage === 'login') {
+      if (isLoggedIn) {
+        if (['admin', 'gerente', 'vendedor'].includes(userRole as string)) {
+          handleNavigate('admin-dashboard');
+        } else {
+          handleNavigate('customer-dashboard');
+        }
+        return null;
+      }
       return (
         <Login 
           onLoginSuccess={(role) => {
-            if (role === 'admin') handleNavigate('admin-dashboard');
-            else handleNavigate('home');
+            if (['admin', 'gerente', 'vendedor'].includes(role?.toLowerCase())) {
+              const hash = window.location.hash.replace('#', '');
+              const savedPage = localStorage.getItem('infodinamica_page');
+              const target = hash || savedPage || 'admin-dashboard';
+              handleNavigate(target.startsWith('admin-') ? target : 'admin-dashboard');
+            } else if (role === 'customer') {
+              handleNavigate('customer-dashboard');
+            } else {
+              handleNavigate('home');
+            }
           }}
           onNavigateHome={() => handleNavigate('home')}
           onNavigateForgotPassword={() => handleNavigate('forgot-password')}
+          onNavigateRegister={() => handleNavigate('register')}
+        />
+      );
+    }
+
+    if (currentPage === 'register') {
+      return (
+        <Register
+          onNavigateLogin={() => handleNavigate('login')}
+          onNavigateHome={() => handleNavigate('home')}
+          onRegisterSuccess={() => handleNavigate('login')}
         />
       );
     }
@@ -140,7 +202,14 @@ const Main: React.FC = () => {
     if (currentPage === 'contact') return <Contact />;
     if (currentPage === 'blog') return <Blog />;
     if (currentPage === 'cart') return <Cart onNavigate={handleNavigate} />;
-    if (currentPage === 'customer-dashboard') return <CustomerDashboard onNavigate={handleNavigate} />;
+    
+    if (currentPage === 'customer-dashboard') {
+      if (!isLoggedIn) {
+        handleNavigate('login');
+        return null;
+      }
+      return <CustomerDashboard onNavigate={handleNavigate} />;
+    }
 
     if (currentPage === 'checkout-success') {
       return (
@@ -159,7 +228,7 @@ const Main: React.FC = () => {
     }
 
     if (isAdminView) {
-      if (!isLoggedIn || userRole !== 'admin') { 
+      if (!isLoggedIn || !['admin', 'gerente', 'vendedor'].includes(userRole?.toLowerCase() as string)) { 
         handleNavigate('login'); 
         return null; 
       }
@@ -176,6 +245,9 @@ const Main: React.FC = () => {
         case 'admin-settings': return <Settings />;
         case 'admin-reports': return <Reports />;
         case 'admin-users': return <AdminUsers />;
+        case 'admin-audit': return <AuditLog />;
+        case 'admin-chat': return <SupportChat />;
+        case 'admin-payments': return <PendingPayments />;
         default: return <Dashboard />;
       }
     }
@@ -183,7 +255,7 @@ const Main: React.FC = () => {
     return <div className="p-12 text-center text-gray-500 font-medium italic">Oops! Página em construção.</div>;
   };
 
-  const isAuthPage = ['login', 'forgot-password'].includes(currentPage) || currentPage.startsWith('reset-password-');
+  const isAuthPage = ['login', 'forgot-password', 'register'].includes(currentPage) || currentPage.startsWith('reset-password-');
 
   return (
     <div className={`min-h-screen flex flex-col transition-all duration-300 ${
@@ -224,6 +296,7 @@ const Main: React.FC = () => {
       <main className={`flex-1 ${isAdminView ? 'bg-gray-50' : 'bg-white'} transition-colors duration-300`}>
         {renderPage()}
       </main>
+      <ChatFloatingButton />
       {!isAdminView && !isAuthPage && <Footer onNavigate={handleNavigate} />}
     </div>
   );
