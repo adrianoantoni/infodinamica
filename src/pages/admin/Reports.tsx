@@ -55,7 +55,7 @@ export const Reports: React.FC = () => {
       addToast('A gerar ficheiro SAF-T. Aguarde...', 'info');
       const token = localStorage.getItem('nexus_token');
       // @ts-ignore
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const API_URL = import.meta.env.VITE_API_URL || '/api';
       
       const response = await fetch(`${API_URL}/saft/export`, {
         headers: {
