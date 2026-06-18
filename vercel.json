@@ -8,7 +8,7 @@
   ],
   "functions": {
     "api/index.ts": {
-      "runtime": "vercel-node@latest",
+      "runtime": "nodejs20.x",
       "includeFiles": "prisma/**"
     }
   }
