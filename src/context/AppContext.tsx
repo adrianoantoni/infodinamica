@@ -56,7 +56,7 @@ interface AppContextType {
   updateCartQuantity: (productId: string, quantity: number, variationId?: string) => void;
   toggleWishlist: (productId: string) => void;
   toggleCompare: (productId: string) => void;
-  placeOrder: (orderData: Partial<Order> & { docType?: string, skipSync?: boolean }) => Promise<Order | null>;
+  placeOrder: (orderData: Partial<Order> & { docType?: string, skipSync?: boolean, discountAmount?: number, isTaxExempt?: boolean, taxExemptionReason?: string }) => Promise<Order | null>;
   updateOrder: (orderId: string, orderData: Partial<Order>) => void;
   setEditingOrder: (order: Order | null) => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
@@ -276,20 +276,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addProduct = useCallback(async (product: Product) => {
     try {
       const savedProduct = await apiService.createProduct(product);
-      setProducts(prev => [savedProduct, ...prev]);
+      const mapped = {
+        ...savedProduct,
+        images: Array.isArray(savedProduct.images) ? savedProduct.images : (savedProduct.image ? [savedProduct.image] : []),
+        reviewsCount: savedProduct.reviews || 0,
+        featured: savedProduct.isDeal || false,
+        variations: Array.isArray(savedProduct.variations) ? savedProduct.variations : []
+      };
+      setProducts(prev => [mapped, ...prev]);
       addToast('Produto criado com sucesso');
-    } catch (error) {
-      addToast('Erro ao criar produto', 'error');
+    } catch (error: any) {
+      addToast(error.message || 'Erro ao criar produto', 'error');
+      throw error;
     }
   }, [addToast]);
+
 
   const updateProduct = useCallback(async (product: Product) => {
     try {
       const updated = await apiService.updateProduct(product);
       setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
       addToast('Produto atualizado com sucesso');
-    } catch (error) {
-      addToast('Erro ao atualizar produto', 'error');
+    } catch (error: any) {
+      addToast(error.message || 'Erro ao atualizar produto', 'error');
+      throw error; // Relançar para o chamador saber que falhou
     }
   }, [addToast]);
 
@@ -464,7 +474,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCart(prev => prev.map(i => (i.productId === id && i.variationId === varId) ? { ...i, quantity: Math.max(1, q) } : i));
   };
 
-  const placeOrder = useCallback(async (data: Partial<Order> & { docType?: string, skipSync?: boolean }) => {
+  const placeOrder = useCallback(async (data: Partial<Order> & { docType?: string, skipSync?: boolean, discountAmount?: number, isTaxExempt?: boolean, taxExemptionReason?: string }) => {
     const orderItems = data.items || [...cart];
     
     // Verificação de segurança final de stock
@@ -480,10 +490,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    const initialSubtotal = data.total || orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
-    const taxRate = invoiceSettings.taxEnabled ? (invoiceSettings.taxRate / 100) : 0;
-    const finalTax = initialSubtotal * taxRate;
-    const finalTotal = initialSubtotal + finalTax;
+    const initialSubtotal = orderItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+    const taxRate = invoiceSettings.taxEnabled && !data.isTaxExempt ? (invoiceSettings.taxRate / 100) : 0;
+    const discount = data.discountAmount || 0;
+    const finalTax = (initialSubtotal - discount) * taxRate;
+    const finalTotal = Math.max(0, initialSubtotal - discount + finalTax);
 
     let recordedSale: any = null;
     let finalDocId = data.id || `ORD-${Math.floor(Math.random() * 90000) + 10000}`;
@@ -495,7 +506,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           customerId: data.customerId === 'c-guest' ? null : data.customerId,
           total: finalTotal,
           tax: finalTax,
-          discount: 0,
+          discount: discount,
+          isTaxExempt: data.isTaxExempt,
+          taxExemptionReason: data.taxExemptionReason,
           paymentMethod: data.paymentMethod || 'Dinheiro',
           items: orderItems.map(item => ({
             productId: item.productId,
@@ -523,7 +536,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       source: data.source || 'direct',
       paidAmount: data.paidAmount,
       balanceUsed: data.balanceUsed,
-      docType: data.docType || 'FATURA'
+      docType: data.docType || 'FATURA',
+      discountAmount: discount,
+      isTaxExempt: data.isTaxExempt,
+      taxExemptionReason: data.taxExemptionReason
     } as any;
 
     // Backend already creates StockMovements in the sale transaction

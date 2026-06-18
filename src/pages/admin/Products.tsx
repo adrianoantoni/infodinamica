@@ -136,31 +136,35 @@ export const Products: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProduct.images || newProduct.images.length === 0) {
-      addToast('Adicione pelo menos uma imagem.', 'error');
+      addToast('Adicione pelo menos uma imagem ao produto.', 'error');
       return;
     }
 
-    if (isEditing && (newProduct as Product).id) {
-      const { id, createdAt, updatedAt, ...rest } = newProduct as any;
-      await updateProduct({ ...rest, id });
+    try {
+      if (isEditing && (newProduct as Product).id) {
+        const { id, createdAt, updatedAt, ...rest } = newProduct as any;
+        await updateProduct({ ...rest, id });
+      } else {
+        const product: Product = {
+          ...newProduct as Product,
+          id: 'p-' + Date.now(), // será descartado pelo backend
+          rating: 0,
+          reviewsCount: 0,
+          featured: false,
+          createdAt: new Date().toISOString(),
+          variations: newProduct.variations || []
+        };
+        await addProduct(product);
+      }
+      // Só fecha se não houve excepção
       setIsModalOpen(false);
       resetForm();
-    } else {
-      const product: Product = {
-        ...newProduct as Product,
-        id: 'p-' + Date.now(),
-        rating: 0,
-        reviewsCount: 0,
-        featured: false,
-        createdAt: new Date().toISOString(),
-        variations: newProduct.variations || []
-      };
-      await addProduct(product);
+    } catch (error: any) {
+      // O erro já é mostrado pelo addProduct/updateProduct
+      // O modal permanece aberto para o utilizador corrigir
     }
-    
-    setIsModalOpen(false);
-    resetForm();
   };
+
 
   const resetForm = () => {
     setIsEditing(false);

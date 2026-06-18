@@ -28,6 +28,7 @@ import { Settings } from '@/pages/admin/Settings';
 import { Reports } from '@/pages/admin/Reports';
 import { AdminUsers } from '@/pages/admin/AdminUsers';
 import { NewSale } from '@/pages/admin/NewSale';
+import { Taxes } from '@/pages/admin/Taxes';
 import { HomeManagement } from '@/pages/admin/HomeManagement';
 import { AuditLog } from '@/pages/admin/AuditLog';
 import { SupportChat } from '@/pages/admin/SupportChat';
@@ -248,6 +249,7 @@ const Main: React.FC = () => {
         case 'admin-audit': return <AuditLog />;
         case 'admin-chat': return <SupportChat />;
         case 'admin-payments': return <PendingPayments />;
+        case 'admin-taxes': return <Taxes />;
         default: return <Dashboard />;
       }
     }

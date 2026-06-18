@@ -19,7 +19,8 @@ import {
   Menu,
   Activity,
   MessageSquare,
-  CreditCard
+  CreditCard,
+  Receipt
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 
@@ -230,6 +231,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 label="Auditoria do Sistema" 
                 active={currentPage === 'admin-audit'}
                 onClick={() => onNavigate('admin-audit')}
+                isCollapsed={isCollapsed}
+              />
+              <SidebarItem 
+                icon={<Receipt size={20} />} 
+                label="Taxas e IVA" 
+                active={currentPage === 'admin-taxes'}
+                onClick={() => onNavigate('admin-taxes')}
                 isCollapsed={isCollapsed}
               />
             </nav>

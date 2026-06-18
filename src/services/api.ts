@@ -111,7 +111,10 @@ export const apiService = {
       headers: getHeaders(),
       body: JSON.stringify(productData),
     });
-    if (!response.ok) throw new Error('Failed to create product');
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: 'Failed to create product' }));
+      throw new Error(err.error || 'Failed to create product');
+    }
     return response.json();
   },
 

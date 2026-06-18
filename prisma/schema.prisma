@@ -27,6 +27,8 @@ model Product {
   images          Json?
   variations      Json?
   specifications  Json?
+  isTaxExempt     Boolean  @default(false)
+  taxExemptionReason String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -58,25 +60,31 @@ model Customer {
 }
 
 model Sale {
-  id              String   @id @default(cuid())
-  invoiceNumber   String   @unique
-  docType         String   @default("FATURA") // FATURA or PROFORMA
-  date            DateTime @default(now())
-  customerId      String?
-  customer        Customer? @relation(fields: [customerId], references: [id])
-  total           Float
-  tax             Float    @default(0)
-  discount        Float    @default(0)
-  paymentMethod   String   @default("Cash")
-  paymentStatus   String   @default("Paid")
-  status          String   @default("Completed") // Completed, Pending, Canceled
-  operator        String?  @default("Sistema")
-  notes           String?
+  id                 String   @id @default(cuid())
+  invoiceNumber      String   @unique
+  docType            String   @default("FATURA") // FATURA or PROFORMA
+  date               DateTime @default(now())
+  customerId         String?
+  customer           Customer? @relation(fields: [customerId], references: [id])
+  total              Float
+  tax                Float    @default(0)
+  discount           Float    @default(0)
+  paymentMethod      String   @default("Cash")
+  paymentStatus      String   @default("Paid")
+  status             String   @default("Completed") // Completed, Pending, Canceled
+  operator           String?  @default("Sistema")
+  notes              String?
   
-  items           OrderItem[]
-  paymentProofs   PaymentProof[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  // Tax & Discounts new fields
+  taxRateApplied     Float?
+  discountAmount     Float    @default(0)
+  isTaxExempt        Boolean  @default(false)
+  taxExemptionReason String?
+  
+  items              OrderItem[]
+  paymentProofs      PaymentProof[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
 
 model OrderItem {
@@ -87,6 +95,7 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float   // Historical price at time of sale
+  taxAmount Float   @default(0)
 }
 
 model SiteSettings {
@@ -171,4 +180,13 @@ model PaymentProof {
   adminNotes    String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+model TaxRate {
+  id          String   @id @default(cuid())
+  year        Int      @unique
+  percentage  Float
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

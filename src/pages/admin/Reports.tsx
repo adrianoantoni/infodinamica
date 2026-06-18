@@ -50,6 +50,35 @@ export const Reports: React.FC = () => {
     }
   };
 
+  const handleExportSAFT = async () => {
+    try {
+      addToast('A gerar ficheiro SAF-T. Aguarde...', 'info');
+      const token = localStorage.getItem('nexus_token');
+      // @ts-ignore
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      const response = await fetch(`${API_URL}/saft/export`, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
+      });
+      
+      if (!response.ok) throw new Error('Falha ao exportar SAF-T');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `SAFT_AO_${new Date().getFullYear()}_${(new Date().getMonth()+1).toString().padStart(2, '0')}.xml`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      addToast('Ficheiro SAF-T exportado com sucesso.', 'success');
+    } catch (error) {
+      addToast('Erro ao exportar ficheiro SAF-T', 'error');
+    }
+  };
+
   const currentYear = new Date().getFullYear();
   const availableYears = [currentYear, currentYear - 1, currentYear - 2];
 
@@ -113,6 +142,10 @@ export const Reports: React.FC = () => {
           
           <button className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-black transition-all">
             <Download className="h-4 w-4" /> {filterType === 'year' ? 'Exportar Ano' : 'Exportar Período'}
+          </button>
+          
+          <button onClick={handleExportSAFT} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all">
+            <Download className="h-4 w-4 text-indigo-300" /> SAF-T (AO)
           </button>
         </div>
       </div>

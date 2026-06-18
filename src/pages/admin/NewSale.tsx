@@ -45,6 +45,11 @@ export const NewSale: React.FC<NewSaleProps> = ({ onNavigate }) => {
   const [varModalProduct, setVarModalProduct] = useState<Product | null>(null);
   const [generateBalance, setGenerateBalance] = useState(false);
   
+  // Novas states para IVA e Desconto
+  const [discountAmount, setDiscountAmount] = useState<number | string>('');
+  const [isTaxExempt, setIsTaxExempt] = useState(false);
+  const [taxExemptionReason, setTaxExemptionReason] = useState('M00 - Isenção');
+  
   const rate = EXCHANGE_RATES[currency];
   const applyTax = invoiceSettings.taxEnabled;
   const currentTaxRate = invoiceSettings.taxRate;
@@ -105,9 +110,10 @@ export const NewSale: React.FC<NewSaleProps> = ({ onNavigate }) => {
     return acc + (price * rate * item.quantity);
   }, 0), [saleItems, rate]);
 
-  const taxRate = applyTax ? (currentTaxRate / 100) : 0;
-  const taxAmount = subtotal * taxRate;
-  const grandTotal = subtotal + taxAmount;
+  const parsedDiscount = Number(discountAmount) || 0;
+  const taxRate = applyTax && !isTaxExempt ? (currentTaxRate / 100) : 0;
+  const taxAmount = (subtotal - parsedDiscount) * taxRate;
+  const grandTotal = Math.max(0, subtotal - parsedDiscount + taxAmount);
   const change = (paymentMethod === 'Dinheiro' && Number(receivedAmount) > grandTotal) ? (Number(receivedAmount) - grandTotal) : 0;
 
   const handleFinishSale = async (docType: 'FATURA' | 'PROFORMA' = 'FATURA') => {
@@ -139,13 +145,16 @@ export const NewSale: React.FC<NewSaleProps> = ({ onNavigate }) => {
 
     const resultOrder = await placeOrder({ 
       items: orderItems,
-      total: subtotal / rate, // Sending subtotal to match backend calculation
+      total: grandTotal / rate,
       source: 'pos', 
       docType,
       customerName: selectedCustomer?.name || 'Venda POS',
       paymentMethod: paymentMethod,
       customerId: selectedCustomer?.id,
       paidAmount: paymentMethod === 'Wallet' ? grandTotal / rate : Number(receivedAmount) / rate,
+      discountAmount: parsedDiscount / rate,
+      isTaxExempt,
+      taxExemptionReason
     });
 
     // Print after backend confirms the sequential invoice number
@@ -295,10 +304,33 @@ export const NewSale: React.FC<NewSaleProps> = ({ onNavigate }) => {
 
           <div className="grid grid-cols-2 gap-6 bg-white/5 p-6 rounded-[2rem] border border-white/10">
              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Desconto (Kz)</label>
+                <input type="number" value={discountAmount} onChange={e => setDiscountAmount(e.target.value)} className="w-full px-5 py-4 bg-black/40 border border-white/10 rounded-2xl font-black text-xl text-white outline-none transition-all" placeholder="0" />
+             </div>
+             <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Isenção de IVA</label>
+                <div className="flex items-center gap-3 bg-black/40 border border-white/10 rounded-2xl px-4 py-4">
+                  <input type="checkbox" checked={isTaxExempt} onChange={e => setIsTaxExempt(e.target.checked)} className="w-5 h-5 accent-indigo-500 rounded" />
+                  <span className="text-xs font-black text-white">ISENTO</span>
+                </div>
+             </div>
+             
+             {isTaxExempt && (
+               <div className="col-span-2 space-y-2 animate-in fade-in slide-in-from-top-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Motivo da Isenção</label>
+                  <select value={taxExemptionReason} onChange={e => setTaxExemptionReason(e.target.value)} className="w-full px-5 py-4 bg-black/40 border border-white/10 rounded-2xl font-black text-sm text-white outline-none transition-all appearance-none">
+                    <option value="M00 - Isenção">M00 - Isenção</option>
+                    <option value="M01 - Artigo 16º nº 6">M01 - Artigo 16º nº 6</option>
+                    <option value="M02 - Artigo 14º">M02 - Artigo 14º</option>
+                  </select>
+               </div>
+             )}
+
+             <div className="col-span-2 space-y-2 mt-2">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Recebido (Kz)</label>
                 <input type="number" value={receivedAmount} onChange={e => setReceivedAmount(e.target.value)} className="w-full px-5 py-4 bg-black/40 border border-white/10 rounded-2xl font-black text-2xl text-[#fed700] outline-none transition-all" placeholder="0" />
              </div>
-             <div className="space-y-2 text-right">
+             <div className="col-span-2 space-y-2 text-right">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2">Troco</label>
                 <p className="text-3xl font-black text-green-400 tracking-tighter italic">{change.toLocaleString()} <span className="text-xs uppercase ml-1 opacity-50">{currency}</span></p>
                 {selectedCustomer && change > 0 && (

@@ -357,6 +357,43 @@ app.get('/api/settings', async (req, res) => {
   }
 });
 
+// --- TAXES ---
+app.get('/api/taxes', protect, authorize('ADMIN', 'GERENTE'), async (req: any, res: any) => {
+  try {
+    const taxes = await prisma.taxRate.findMany({ orderBy: { year: 'desc' } });
+    res.json(taxes);
+  } catch (error) {
+    res.status(500).json({ error: 'Falha ao buscar taxas' });
+  }
+});
+
+app.post('/api/taxes', protect, authorize('ADMIN'), async (req: any, res: any) => {
+  try {
+    const { year, percentage, isActive } = req.body;
+    const tax = await prisma.taxRate.upsert({
+      where: { year: parseInt(year) },
+      update: { percentage: parseFloat(percentage), isActive },
+      create: { year: parseInt(year), percentage: parseFloat(percentage), isActive }
+    });
+    res.json(tax);
+  } catch (error) {
+    res.status(500).json({ error: 'Falha ao criar taxa' });
+  }
+});
+
+app.put('/api/taxes/:id', protect, authorize('ADMIN'), async (req: any, res: any) => {
+  try {
+    const { percentage, isActive } = req.body;
+    const tax = await prisma.taxRate.update({
+      where: { id: req.params.id },
+      data: { percentage: parseFloat(percentage), isActive }
+    });
+    res.json(tax);
+  } catch (error) {
+    res.status(500).json({ error: 'Falha ao atualizar taxa' });
+  }
+});
+
 // 2. Products
 app.get('/api/products', async (req, res) => {
   try {
@@ -379,15 +416,51 @@ app.get('/api/products/:id', async (req, res) => {
 
 app.post('/api/products', protect, authorize('ADMIN', 'GERENTE'), async (req: any, res: any) => {
   try {
+    // Descartar campos gerados pelo cliente que não existem no schema
+    const {
+      id: _id,
+      createdAt: _createdAt,
+      updatedAt: _updatedAt,
+      reviewsCount,
+      featured,
+      OrderItems: _oi,
+      ...rest
+    } = req.body;
+
+    // Gerar SKU automático se não for fornecido
+    const sku = rest.sku && rest.sku.trim() !== ''
+      ? rest.sku
+      : `SKU-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
     const product = await prisma.product.create({
-      data: req.body
+      data: {
+        name: rest.name,
+        brand: rest.brand || '',
+        description: rest.description || '',
+        price: Number(rest.price) || 0,
+        stock: Number(rest.stock) || 0,
+        minStock: Number(rest.minStock) || 5,
+        category: rest.category || 'Informática',
+        subCategory: rest.subCategory || null,
+        specificItem: rest.specificItem || null,
+        images: Array.isArray(rest.images) ? rest.images : [],
+        variations: Array.isArray(rest.variations) ? rest.variations : [],
+        rating: Number(rest.rating) || 0,
+        reviews: Number(reviewsCount) || 0,
+        isDeal: featured ?? false,
+        isNew: rest.isNew ?? true,
+        sku,
+      }
     });
+
     await logAction(req.user.id, 'CREATE_PRODUCT', `Criou o produto: ${product.name}`);
-    res.json(product);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to create product' });
+    res.status(201).json(product);
+  } catch (error: any) {
+    console.error('Create product error:', error);
+    res.status(500).json({ error: error.message || 'Failed to create product' });
   }
 });
+
 
 app.put('/api/products/:id', protect, authorize('ADMIN', 'GERENTE'), async (req: any, res: any) => {
   try {
@@ -713,11 +786,59 @@ app.get('/api/sales', async (req, res) => {
 });
 
 app.post('/api/sales', async (req: any, res: any) => {
-  const { customerId, items, total, tax, discount, paymentMethod, notes, docType } = req.body;
+  const { customerId, items, discountAmount, isTaxExempt, taxExemptionReason, paymentMethod, notes, docType } = req.body;
   const finalDocType = docType || 'FATURA';
   
   try {
     const year = new Date().getFullYear();
+    
+    // Obter Taxa de IVA do Ano Corrente
+    const activeTax = await prisma.taxRate.findFirst({
+      where: { year, isActive: true }
+    });
+    const taxRatePercentage = activeTax ? activeTax.percentage : 0;
+    
+    // Processar produtos para cálculos precisos
+    const productIds = items.map((i: any) => i.productId);
+    const dbProducts = await prisma.product.findMany({ where: { id: { in: productIds } } });
+    const productMap = new Map(dbProducts.map((p: any) => [p.id, p]));
+    
+    let subtotal = 0;
+    let totalTaxAmount = 0;
+    const finalDiscountAmount = Number(discountAmount) || 0;
+    const isExemptGlobal = isTaxExempt === true || isTaxExempt === 'true';
+
+    const processedItems = items.map((item: any) => {
+      const p = productMap.get(item.productId);
+      if (!p) throw new Error(`Produto não encontrado: ${item.productId}`);
+      
+      const itemSubtotal = p.price * item.quantity;
+      subtotal += itemSubtotal;
+      
+      let itemTaxAmount = 0;
+      if (!isExemptGlobal && !p.isTaxExempt && taxRatePercentage > 0) {
+         itemTaxAmount = itemSubtotal * (taxRatePercentage / 100);
+      }
+      totalTaxAmount += itemTaxAmount;
+      
+      return {
+         productId: item.productId,
+         quantity: item.quantity,
+         price: p.price,
+         taxAmount: itemTaxAmount
+      };
+    });
+
+    if (finalDiscountAmount > 0 && subtotal > 0 && totalTaxAmount > 0) {
+       const discountRatio = 1 - (finalDiscountAmount / subtotal);
+       totalTaxAmount = totalTaxAmount * discountRatio;
+       processedItems.forEach((pi: any) => {
+           pi.taxAmount = pi.taxAmount * discountRatio;
+       });
+    }
+
+    const finalTotal = subtotal - finalDiscountAmount + totalTaxAmount;
+
     const count = await prisma.sale.count({
       where: {
         docType: finalDocType as any,
@@ -745,24 +866,29 @@ app.post('/api/sales', async (req: any, res: any) => {
           invoiceNumber: generatedInvoiceNumber,
           docType: finalDocType as any,
           customerId: customerId || null,
-          total,
-          tax,
-          discount,
+          total: finalTotal,
+          tax: totalTaxAmount,
+          discount: finalDiscountAmount,
+          discountAmount: finalDiscountAmount,
+          taxRateApplied: taxRatePercentage,
+          isTaxExempt: isExemptGlobal,
+          taxExemptionReason: isExemptGlobal ? (taxExemptionReason || 'M00 - Isenção') : null,
           paymentMethod,
           operator: req.user?.name || 'Sistema',
           notes,
           items: {
-            create: items.map((item: any) => ({
+            create: processedItems.map((item: any) => ({
               productId: item.productId,
               quantity: item.quantity,
-              price: item.price
+              price: item.price,
+              taxAmount: item.taxAmount
             }))
           }
         } as any,
         include: { items: true }
       });
 
-      for (const item of items) {
+      for (const item of processedItems) {
         await tx.product.update({
           where: { id: item.productId },
           data: { stock: { decrement: item.quantity } }
@@ -783,7 +909,7 @@ app.post('/api/sales', async (req: any, res: any) => {
     });
 
     if (req.user) {
-      await logAction(req.user.id, 'CREATE_SALE', `Registou uma nova venda (${generatedInvoiceNumber}) no valor de ${total}`);
+      await logAction(req.user.id, 'CREATE_SALE', `Registou uma nova venda (${generatedInvoiceNumber}) no valor de ${sale.total}`);
     }
 
     res.json(sale);
@@ -907,6 +1033,66 @@ app.put('/api/settings', protect, authorize('ADMIN'), async (req: any, res: any)
     res.json(settings);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+// --- SAF-T EXPORT ---
+app.get('/api/saft/export', protect, authorize('ADMIN', 'GERENTE'), async (req: any, res: any) => {
+  try {
+    const { year, month } = req.query;
+    const targetYear = parseInt(year as string) || new Date().getFullYear();
+    const targetMonth = parseInt(month as string) || new Date().getMonth() + 1;
+
+    const startDate = new Date(`${targetYear}-${targetMonth.toString().padStart(2, '0')}-01T00:00:00.000Z`);
+    const endDate = new Date(startDate);
+    endDate.setMonth(endDate.getMonth() + 1);
+
+    const [sales, settings] = await Promise.all([
+      prisma.sale.findMany({
+        where: { date: { gte: startDate, lt: endDate }, status: { not: 'Canceled' }, docType: 'FATURA' },
+        include: { items: { include: { product: true } }, customer: true }
+      }),
+      prisma.siteSettings.findFirst({ where: { id: 1 } })
+    ]);
+
+    const xml = `<?xml version="1.0" encoding="Windows-1252"?>
+<AuditFile xmlns="urn:OECD:StandardAuditFile-Tax:AO_1.01_01">
+  <Header>
+    <AuditFileVersion>1.01_01</AuditFileVersion>
+    <CompanyID>${settings?.nif || '999999999'}</CompanyID>
+    <TaxRegistrationNumber>${settings?.nif || '999999999'}</TaxRegistrationNumber>
+    <CompanyName>${settings?.siteName || 'Empresa Teste'}</CompanyName>
+    <CompanyAddress>
+      <AddressDetail>${settings?.address || 'Luanda, Angola'}</AddressDetail>
+      <City>Luanda</City>
+      <Country>AO</Country>
+    </CompanyAddress>
+    <FiscalYear>${targetYear}</FiscalYear>
+    <StartDate>${startDate.toISOString().split('T')[0]}</StartDate>
+    <EndDate>${new Date(endDate.getTime() - 1).toISOString().split('T')[0]}</EndDate>
+    <CurrencyCode>AOA</CurrencyCode>
+  </Header>
+  <MasterFiles>
+    <Customer>
+    </Customer>
+    <Product>
+    </Product>
+  </MasterFiles>
+  <SourceDocuments>
+    <SalesInvoices>
+      <NumberOfEntries>${sales.length}</NumberOfEntries>
+      <TotalDebit>0.00</TotalDebit>
+      <TotalCredit>${sales.reduce((acc: number, s: any) => acc + s.total, 0).toFixed(2)}</TotalCredit>
+    </SalesInvoices>
+  </SourceDocuments>
+</AuditFile>`;
+
+    res.setHeader('Content-Type', 'application/xml');
+    res.setHeader('Content-Disposition', `attachment; filename="SAFT_AO_${targetYear}_${targetMonth.toString().padStart(2, '0')}.xml"`);
+    res.send(xml);
+  } catch (error) {
+    console.error('SAF-T Error:', error);
+    res.status(500).json({ error: 'Falha ao exportar SAF-T' });
   }
 });
 
