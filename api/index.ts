@@ -28,6 +28,21 @@ export default app; // Required for Vercel serverless functions
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
 
+const normalizeImageUrl = (url: string) => {
+  if (typeof url === 'string') {
+    return url.replace(/^https?:\/\/localhost:\d+/, '');
+  }
+  return url;
+};
+
+const sanitizeProductImages = (product: any) => {
+  if (!product) return product;
+  if (Array.isArray(product.images)) {
+    product.images = product.images.map(normalizeImageUrl);
+  }
+  return product;
+};
+
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -354,6 +369,47 @@ app.delete('/api/users/:id', protect, authorize('ADMIN'), async (req: any, res: 
   }
 });
 
+app.get('/api/users/online', protect, authorize('ADMIN'), async (req: any, res: any) => {
+  try {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const onlineUsers = await prisma.user.findMany({
+      where: { lastActive: { gte: fiveMinutesAgo } },
+      select: { id: true, name: true, email: true, role: true, lastActive: true }
+    });
+    res.json(onlineUsers);
+  } catch (error) {
+    res.status(500).json({ error: 'Falha ao buscar utilizadores online' });
+  }
+});
+
+app.put('/api/users/profile', protect, async (req: any, res: any) => {
+  const { name, email, phone, address, nif } = req.body;
+  try {
+    const updatedUser = await prisma.$transaction(async (tx: any) => {
+      const user = await tx.user.update({
+        where: { id: req.user.id },
+        data: { name, email },
+        include: { customer: true }
+      });
+      if (user.customer) {
+        await tx.customer.update({
+          where: { id: user.customer.id },
+          data: { name, email, phone, address, nif }
+        });
+      } else {
+        const customer = await tx.customer.create({
+          data: { name, email, phone, address, nif, userId: user.id }
+        });
+        return { ...user, customer };
+      }
+      return user;
+    });
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ error: 'Falha ao atualizar perfil' });
+  }
+});
+
 // 1. Settings
 app.get('/api/settings', async (req, res) => {
   try {
@@ -405,7 +461,7 @@ app.put('/api/taxes/:id', protect, authorize('ADMIN'), async (req: any, res: any
 app.get('/api/products', async (req, res) => {
   try {
     const products = await prisma.product.findMany();
-    res.json(products);
+    res.json(products.map(sanitizeProductImages));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch products' });
   }
@@ -415,7 +471,7 @@ app.get('/api/products/:id', async (req, res) => {
   try {
     const product = await prisma.product.findUnique({ where: { id: req.params.id } });
     if (!product) return res.status(404).json({ error: 'Product not found' });
-    res.json(product);
+    res.json(sanitizeProductImages(product));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch product' });
   }
@@ -1014,7 +1070,7 @@ app.get('/api/stock-movements/low-stock', protect, authorize('ADMIN', 'GERENTE')
       select: { id: true, name: true, sku: true, stock: true, minStock: true, images: true, category: true }
     });
     const lowStock = allProducts.filter((p: any) => p.stock <= p.minStock);
-    res.json(lowStock);
+    res.json(lowStock.map(sanitizeProductImages));
   } catch (error) {
     console.error('Low stock error:', error);
     res.status(500).json({ error: 'Falha ao buscar produtos com stock baixo' });
@@ -1025,7 +1081,7 @@ app.post('/api/upload', protect, authorize('ADMIN', 'GERENTE'), upload.single('i
   if (!req.file) {
     return res.status(400).json({ error: 'Nenhum arquivo enviado' });
   }
-  const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+  const fileUrl = `/uploads/${req.file.filename}`;
   res.json({ url: fileUrl });
 });
 

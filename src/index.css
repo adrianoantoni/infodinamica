@@ -1,6 +1,11 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --font-family-sans: 'Inter', sans-serif;
+  --font-size-base: 1rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+}
 
 :root {
   --foreground-rgb: 0, 0, 0;
