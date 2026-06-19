@@ -140,7 +140,7 @@ app.use(cors({
   credentials: true
 }));
 app.use(helmet());
-app.use(express.json({ limit: '10kb' })); // Mitigates large payload DoS
+app.use(express.json({ limit: '10mb' }));
 
 // --- SMTP CONFIGURATION ---
 const transporter = nodemailer.createTransport({
