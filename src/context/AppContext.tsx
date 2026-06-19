@@ -144,11 +144,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         try {
           const dbSettings = await apiService.getSettings();
-          if (dbSettings) {
-             // Map backend SiteSettings to frontend states
+           if (dbSettings) {
+             const logoPath = dbSettings.siteLogo?.replace('/src/assets/', '/') || '/system_logo.jpg';
              setSiteSettings({
                 siteName: dbSettings.siteName || 'Infodinamica',
-                siteLogo: dbSettings.siteLogo || '/system_logo.jpg',
+                siteLogo: logoPath,
                 siteDescription: dbSettings.siteDescription || ''
              });
              setInvoiceSettings(prev => ({
@@ -156,7 +156,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 companyName: dbSettings.siteName || prev.companyName,
                 nif: dbSettings.nif || prev.nif,
                 phone: dbSettings.phone || prev.phone,
-                logo: dbSettings.siteLogo || prev.logo,
+                logo: logoPath,
                 address: dbSettings.address || prev.address,
                 iban: dbSettings.bankAccount || prev.iban,
                 bankName: dbSettings.bankName || prev.bankName,

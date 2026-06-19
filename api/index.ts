@@ -44,10 +44,10 @@ const sanitizeProductImages = (product: any) => {
 };
 
 // Serve static files from uploads directory
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Ensure uploads directory exists
-const uploadDir = path.join(__dirname, 'uploads');
+const uploadDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
@@ -414,6 +414,9 @@ app.put('/api/users/profile', protect, async (req: any, res: any) => {
 app.get('/api/settings', async (req, res) => {
   try {
     const settings = await prisma.siteSettings.findFirst({ where: { id: 1 } });
+    if (settings?.siteLogo) {
+      settings.siteLogo = settings.siteLogo.replace('/src/assets/', '/');
+    }
     res.json(settings);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch settings' });
