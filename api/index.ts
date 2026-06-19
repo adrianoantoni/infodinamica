@@ -66,15 +66,7 @@ if (uploadDir !== localUploadDir) {
 }
 
 // Multer configuration
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
+const storage = multer.memoryStorage();
 
 const upload = multer({ 
   storage: storage,
@@ -1097,8 +1089,11 @@ app.post('/api/upload', protect, authorize('ADMIN', 'GERENTE'), upload.single('i
   if (!req.file) {
     return res.status(400).json({ error: 'Nenhum arquivo enviado' });
   }
-  const fileUrl = `/uploads/${req.file.filename}`;
-  res.json({ url: fileUrl });
+  const buffer = req.file.buffer;
+  const base64 = buffer.toString('base64');
+  const mimeType = req.file.mimetype;
+  const dataUrl = `data:${mimeType};base64,${base64}`;
+  res.json({ url: dataUrl });
 });
 
 // 5. Settings
