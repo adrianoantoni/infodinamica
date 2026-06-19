@@ -105,11 +105,18 @@ const logAction = async (userId: string, action: string, description?: string) =
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:5173',
   process.env.VITE_FRONTEND_URL,
-  'http://localhost:3000'
+  'http://localhost:3000',
+  'https://infodinamica-mkqk.vercel.app'
 ].filter(Boolean);
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.some(o => origin.startsWith(o) || origin.endsWith('.vercel.app'))) {
+      callback(null, true);
+    } else {
+      callback(null, origin);
+    }
+  },
   credentials: true
 }));
 app.use(helmet());
