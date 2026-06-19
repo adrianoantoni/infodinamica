@@ -10,6 +10,7 @@ import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
@@ -43,13 +44,25 @@ const sanitizeProductImages = (product: any) => {
   return product;
 };
 
-// Serve static files from uploads directory
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+// Ensure uploads directory exists (local) or use /tmp on serverless
+const localUploadDir = path.join(__dirname, '..', 'uploads');
+let uploadDir = localUploadDir;
+try {
+  if (!fs.existsSync(localUploadDir)) {
+    fs.mkdirSync(localUploadDir, { recursive: true });
+  }
+  fs.accessSync(localUploadDir, fs.constants.W_OK);
+} catch {
+  uploadDir = path.join(os.tmpdir(), 'infodinamica-uploads');
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+}
 
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
+// Serve static files from uploads directory
+app.use('/uploads', express.static(localUploadDir));
+if (uploadDir !== localUploadDir) {
+  app.use('/uploads', express.static(uploadDir));
 }
 
 // Multer configuration
