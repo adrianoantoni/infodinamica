@@ -130,6 +130,22 @@ const Main: React.FC = () => {
     window.scrollTo(0, 0);
   };
 
+  // Auth guard effect
+  useEffect(() => {
+    if (isLoading) return;
+    if (currentPage === 'customer-dashboard' && !isLoggedIn) {
+      handleNavigate('login');
+    } else if (currentPage === 'login' && isLoggedIn) {
+      if (['admin', 'gerente', 'vendedor'].includes(userRole as string)) {
+        handleNavigate('admin-dashboard');
+      } else {
+        handleNavigate('customer-dashboard');
+      }
+    } else if (isAdminView && (!isLoggedIn || !['admin', 'gerente', 'vendedor'].includes(userRole?.toLowerCase() as string))) {
+      handleNavigate('login');
+    }
+  }, [isLoading, isLoggedIn, currentPage, isAdminView, userRole]);
+
   const isAdminView = currentPage.startsWith('admin-');
 
   const renderPage = () => {
@@ -143,14 +159,7 @@ const Main: React.FC = () => {
     }
 
     if (currentPage === 'login') {
-      if (isLoggedIn) {
-        if (['admin', 'gerente', 'vendedor'].includes(userRole as string)) {
-          handleNavigate('admin-dashboard');
-        } else {
-          handleNavigate('customer-dashboard');
-        }
-        return null;
-      }
+      if (isLoggedIn) return null;
       return (
         <Login 
           onLoginSuccess={(role) => {
@@ -205,10 +214,7 @@ const Main: React.FC = () => {
     if (currentPage === 'cart') return <Cart onNavigate={handleNavigate} />;
     
     if (currentPage === 'customer-dashboard') {
-      if (!isLoggedIn) {
-        handleNavigate('login');
-        return null;
-      }
+      if (!isLoggedIn) return null;
       return <CustomerDashboard onNavigate={handleNavigate} />;
     }
 
@@ -230,7 +236,6 @@ const Main: React.FC = () => {
 
     if (isAdminView) {
       if (!isLoggedIn || !['admin', 'gerente', 'vendedor'].includes(userRole?.toLowerCase() as string)) { 
-        handleNavigate('login'); 
         return null; 
       }
       switch(currentPage) {

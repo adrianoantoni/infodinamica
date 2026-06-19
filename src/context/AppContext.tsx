@@ -203,19 +203,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setUser(userData);
         } catch (error: any) {
           console.error('Session check failed:', error);
-          logout();
+          if (error.status === 401 || error.message?.includes('401')) {
+            logout();
+          }
         }
       } else {
         setIsLoggedIn(false);
         setUserRole(null);
       }
-      // isLoading is now managed in fetchData()
     };
 
     const fetchData = async () => {
       try {
-        await loadInitialData();
         await checkSession();
+        await loadInitialData();
       } finally {
         setIsLoading(false);
       }
@@ -653,10 +654,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUserName(null);
     setUser(null);
     addToast('Sessão terminada', 'info');
-    // Force redirect to login
-    if (window.location.pathname.includes('/admin')) {
-      window.location.href = '/login';
-    }
+    window.location.hash = 'login';
   }, [addToast]);
 
   const fetchCustomerOrders = useCallback(async (customerId: string) => {
