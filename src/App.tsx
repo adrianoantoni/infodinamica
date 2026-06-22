@@ -142,6 +142,8 @@ const Main: React.FC = () => {
     window.scrollTo(0, 0);
   };
 
+  const isAdminView = currentPage.startsWith('admin-');
+
   // Auth guard effect
   useEffect(() => {
     if (isLoading) return;
@@ -157,8 +159,6 @@ const Main: React.FC = () => {
       handleNavigate('login');
     }
   }, [isLoading, isLoggedIn, currentPage, isAdminView, userRole]);
-
-  const isAdminView = currentPage.startsWith('admin-');
 
   const renderPage = () => {
     if (isLoading) {
