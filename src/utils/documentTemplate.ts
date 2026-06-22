@@ -141,6 +141,7 @@ export const printDocument = (sale: any, siteSettings: any, invoiceSettings: any
                   <tr><td>Data de Emissão</td><td>${dateStr}</td></tr>
                   <tr><td>Data de Impressão</td><td>${new Date().toLocaleString('pt-AO')}</td></tr>
                   <tr><td>Doc n.º</td><td><strong>${docId}</strong></td></tr>
+                  <tr><td>Operador</td><td>${sale.operator || 'Sistema'}</td></tr>
                   <tr><td>Moeda</td><td>${siteSettings.currency || 'AOA'}</td></tr>
                 </table>
               </div>
@@ -213,7 +214,7 @@ export const printDocument = (sale: any, siteSettings: any, invoiceSettings: any
               <div class="signature-box">
                 <div class="signature-line"></div>
                 <p class="signature-title">${invoiceSettings.companyName}</p>
-                <p class="signature-desc">O Operador</p>
+                <p class="signature-desc">${sale.operator || 'Operador'}</p>
               </div>
               <div class="signature-box">
                 <div class="signature-line"></div>

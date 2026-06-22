@@ -108,6 +108,18 @@ const Main: React.FC = () => {
     }
   }, [currentPage]);
 
+  // Save page before refresh/unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const isAuthPage = ['login', 'forgot-password', 'register'].includes(currentPage) || currentPage.startsWith('reset-password-');
+      if (!isAuthPage) {
+        localStorage.setItem('infodinamica_page', currentPage);
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [currentPage]);
+
   // 2. Listen for browser Back/Forward/Hash changes
   useEffect(() => {
     const handleHashChange = () => {

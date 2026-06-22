@@ -94,12 +94,12 @@ const protect = async (req: any, res: any, next: any) => {
         where: { id: decoded.id },
         include: { customer: true }
       });
-      next();
+      return next();
     } catch (error) {
-      res.status(401).json({ error: 'Not authorized' });
+      return res.status(401).json({ error: 'Not authorized' });
     }
   }
-  if (!token) res.status(401).json({ error: 'Not authorized, no token' });
+  return res.status(401).json({ error: 'Not authorized, no token' });
 };
 
 const authorize = (...roles: string[]) => {
@@ -856,7 +856,7 @@ app.get('/api/sales', async (req, res) => {
   }
 });
 
-app.post('/api/sales', async (req: any, res: any) => {
+app.post('/api/sales', protect, authorize('ADMIN', 'GERENTE', 'VENDEDOR'), async (req: any, res: any) => {
   const { customerId, items, discountAmount, isTaxExempt, taxExemptionReason, paymentMethod, notes, docType } = req.body;
   const finalDocType = docType || 'FATURA';
   
